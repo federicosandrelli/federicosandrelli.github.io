@@ -205,8 +205,8 @@
         var co2 = (bytes / 1073741824) * kwhPerGB * gCO2PerKwh;
         document.getElementById('carbon').textContent =
             co2 < 0.01
-                ? '~' + (co2 * 1000).toFixed(1) + 'mg CO\u2082 per visit'
-                : '~' + co2.toFixed(2) + 'g CO\u2082 per visit';
+                ? 'minimal by design ~' + (co2 * 1000).toFixed(1) + 'mg CO\u2082 per visit'
+                : 'minimal by design ~' + co2.toFixed(2) + 'g CO\u2082 per visit';
     </script>
 </body>
 </html>
