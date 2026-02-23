@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Federico Sandrelli</title>
+    <meta name="description" content="Backend Software Engineer. London.">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #111;
+            max-width: 620px;
+            margin: 0 auto;
+            padding: 4rem 1.5rem;
+            font-size: 15px;
+        }
+        a { color: inherit; text-decoration-color: #ccc; text-underline-offset: 2px; }
+        a:hover { text-decoration-color: #111; }
+        header { margin-bottom: 3rem; }
+        h1 { font-size: 1.3rem; font-weight: 600; letter-spacing: -0.01em; }
+        .contact { margin-top: 0.4rem; font-size: 0.85rem; color: #666; }
+        section { margin-bottom: 2.5rem; }
+        h2 {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #999;
+            margin-bottom: 1.2rem;
+        }
+        .entry { margin-bottom: 1.5rem; }
+        .entry:last-child { margin-bottom: 0; }
+        .entry-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 0.25rem 1rem;
+        }
+        h3 { font-size: 0.95rem; font-weight: 600; }
+        .date { font-size: 0.8rem; color: #999; white-space: nowrap; }
+        .role { font-size: 0.85rem; color: #555; margin-top: 0.1rem; }
+        ul { margin-top: 0.4rem; padding-left: 1.1rem; color: #333; }
+        li { font-size: 0.85rem; margin-bottom: 0.2rem; }
+        li::marker { color: #ccc; }
+        .detail { font-size: 0.8rem; color: #888; margin-top: 0.1rem; }
+        .skills-list { font-size: 0.85rem; color: #333; }
+        footer {
+            margin-top: 4rem;
+            padding-top: 1rem;
+            border-top: 1px solid #eee;
+            font-size: 0.7rem;
+            color: #ccc;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Federico Sandrelli</h1>
+        <p class="contact">
+            London &middot;
+            <a href="mailto:federico.sandrelli@gmail.com">federico.sandrelli@gmail.com</a> &middot;
+            <a href="https://linkedin.com/in/federico-sandrelli">LinkedIn</a>
+        </p>
+    </header>
+
+    <section>
+        <h2>Experience</h2>
+
+        <div class="entry">
+            <div class="entry-header">
+                <h3>Granular Energy</h3>
+                <span class="date">Aug 2025 &ndash; Present</span>
+            </div>
+            <p class="role">Backend Software Engineer</p>
+            <ul>
+                <li>Designed and built the reconciliation engine that matches energy certificates to contracts at hourly resolution, processing over 300 billion certificates per year.</li>
+                <li>Identified a critical query bottleneck on energy metering data and drove adoption of TimescaleDB, reducing query times on the largest table from over 60s to under 10s.</li>
+            </ul>
+        </div>
+
+        <div class="entry">
+            <div class="entry-header">
+                <h3>Bloomberg</h3>
+                <span class="date">Jul 2024 &ndash; Jul 2025</span>
+            </div>
+            <p class="role">Backend Software Engineer &mdash; ESG Regulations</p>
+            <ul>
+                <li>Developed a service to compute and store all ESG metrics for funds, processing 15 billion holdings/day.</li>
+                <li>Solved the fund dependency graph problem in closed form, previously unsolved at Bloomberg, enabling more accurate ESG assessments across thousands of funds.</li>
+                <li>Developed ESG Insights, a TypeScript-based UI for simplified ESG evaluation views.</li>
+            </ul>
+        </div>
+
+        <div class="entry">
+            <div class="entry-header">
+                <h3>Bloomberg</h3>
+                <span class="date">Jul 2020 &ndash; Jul 2024</span>
+            </div>
+            <p class="role">Mobile Engineer</p>
+            <ul>
+                <li>Full-stack Android developer for IB, a messaging feature of the Bloomberg Professional app with 200k+ MAUs.</li>
+                <li>Owner of server-side development for BCards, a platform-agnostic UI framework.</li>
+                <li>Drove department-wide adoption of Jetpack Compose and led development of a global mobile design system.</li>
+            </ul>
+        </div>
+
+        <div class="entry">
+            <div class="entry-header">
+                <h3>University of Illinois at Chicago</h3>
+                <span class="date">Sep &ndash; Dec 2019</span>
+            </div>
+            <p class="role">Graduate Research Assistant</p>
+            <ul>
+                <li>Built an Arduino device and Unity games for stroke rehabilitation, translating patient motion into game inputs.</li>
+                <li>Developed a web interface for patient data visualisation using React and PostgreSQL.</li>
+            </ul>
+        </div>
+    </section>
+
+    <section>
+        <h2>Education</h2>
+
+        <div class="entry">
+            <div class="entry-header">
+                <h3>MSc Software Engineering</h3>
+                <span class="date">2018 &ndash; 2020</span>
+            </div>
+            <p class="detail">Politecnico di Milano &middot; 110 cum Laude / 110</p>
+        </div>
+
+        <div class="entry">
+            <div class="entry-header">
+                <h3>MSc Computer Science</h3>
+                <span class="date">2018 &ndash; 2019</span>
+            </div>
+            <p class="detail">University of Illinois at Chicago &middot; GPA 3.85 / 4.0</p>
+        </div>
+
+        <div class="entry">
+            <div class="entry-header">
+                <h3>Climate Change: Learning for Action</h3>
+                <span class="date">Jan &ndash; Mar 2024</span>
+            </div>
+            <p class="detail">Terra.do</p>
+        </div>
+    </section>
+
+    <section>
+        <h2>Projects</h2>
+
+        <div class="entry">
+            <div class="entry-header">
+                <h3>Reward Estimation of Risk Sensitive Agents through Gradient-based IRL</h3>
+                <span class="date">2020</span>
+            </div>
+            <p class="detail">Master's Thesis</p>
+            <ul>
+                <li>Explored a novel approach to simultaneously estimate an expert's risk sensitivity level and the weights of the optimised reward function.</li>
+            </ul>
+        </div>
+
+        <div class="entry">
+            <div class="entry-header">
+                <h3>3D Model Reconstruction From Stereo Images</h3>
+                <span class="date">2018</span>
+            </div>
+            <ul>
+                <li>Developed a stereo matching and 3D reconstruction pipeline using Python and OpenCV.</li>
+            </ul>
+        </div>
+
+        <div class="entry">
+            <div class="entry-header">
+                <h3>HackSaic</h3>
+                <span class="date">2019</span>
+            </div>
+            <p class="detail">School of the Art Institute of Chicago</p>
+            <ul>
+                <li>Created a VR experience using Structure from Motion to map 3D environments from photos. Selected for the Art and Technology Department exhibition.</li>
+            </ul>
+        </div>
+    </section>
+
+    <section>
+        <h2>Skills</h2>
+        <p class="skills-list">
+            Python, Kotlin, C++, Android &middot; TypeScript, SQL, HTML/CSS, React, Node.js
+        </p>
+    </section>
+
+    <footer>
+        <span id="carbon"></span>
+    </footer>
+
+    <script>
+        // Sustainable Web Design Model v4
+        // https://sustainablewebdesign.org/estimating-digital-emissions/
+        var kwhPerGB = 0.055 + 0.012 + 0.059 + 0.013 + 0.080 + 0.081;
+        var gCO2PerKwh = 494;
+        var bytes = new Blob([document.documentElement.outerHTML]).size;
+        var co2 = (bytes / 1073741824) * kwhPerGB * gCO2PerKwh;
+        document.getElementById('carbon').textContent =
+            co2 < 0.01
+                ? '~' + (co2 * 1000).toFixed(1) + 'mg CO\u2082 per visit'
+                : '~' + co2.toFixed(2) + 'g CO\u2082 per visit';
+    </script>
+</body>
+</html>
