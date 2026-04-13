@@ -18,6 +18,7 @@
         }
         a { color: inherit; text-decoration-color: #ccc; text-underline-offset: 2px; }
         a:hover { text-decoration-color: #111; }
+        li a { text-decoration-color: #888; }
         header { margin-bottom: 3rem; }
         h1 { font-size: 1.3rem; font-weight: 600; letter-spacing: -0.01em; }
         .contact { margin-top: 0.4rem; font-size: 0.85rem; color: #666; }
@@ -40,6 +41,7 @@
             gap: 0.25rem 1rem;
         }
         h3 { font-size: 0.95rem; font-weight: 600; }
+        .projects h3 { font-size: 0.85rem; font-weight: 500; }
         .date { font-size: 0.8rem; color: #999; white-space: nowrap; }
         .role { font-size: 0.85rem; color: #555; margin-top: 0.1rem; }
         ul { margin-top: 0.4rem; padding-left: 1.1rem; color: #333; }
@@ -76,9 +78,9 @@
                 <h3><a href="https://www.granular-energy.com/">Granular Energy</a></h3>
                 <span class="date">Aug 2025 &ndash; Present</span>
             </div>
-            <p class="role">Backend Software Engineer &mdash; EAC Management Platform </p>
+            <p class="role">Backend Software Engineer &mdash; EAC Management Platform</p>
             <ul>
-                <li>Primary developer of the reconciliation engine powering 24/7 hourly matching of renewable energy certificates, processing over 300 billion certificates annually. Redesigned and rebuilt the engine to replace a legacy system that could not scale to new use cases.</li>
+                <li>Primary developer of the reconciliation engine powering 24/7 hourly matching of renewable energy certificates, processing over 300 billion certificates annually.</li>
                 <li>Extended the platform from certificate-only to support the Evidend volumetric registry, unblocking enterprise clients including one of the world's largest renewable energy suppliers.</li>
                 <li>Introduced TimescaleDB to the database and migrated the largest tables, reducing load times by 5x for the Demand and Supply dashboards of the most data-intensive clients.</li>
             </ul>
@@ -104,9 +106,9 @@
             </div>
             <p class="role">Android Software Engineer</p>
             <ul>
-                <li>Co-architected a platform-agnostic UI framework rendering custom layouts natively across iOS, Android, and desktop. Sole developer of the mobile Python backend and Android frontend. Adopted by 4+ teams (News, Messaging, Market, Search) for 10+ card layouts, reducing new layout delivery from days of cross-team coordination to hours by a single team.</li>
+                <li>Co-architected a platform-agnostic UI framework rendering custom layouts natively across iOS, Android, and desktop. Sole developer of the mobile Python backend and Android frontend.</li>
                 <li>Developed core features (message forwarding, file sharing, user settings) for IB, a messaging feature of the Bloomberg Professional app with 200k+ MAUs. All frontend business logic implemented in C++ for cross-platform performance.</li>
-                <li>Drove department-wide adoption of Jetpack Compose: built the ComposeBottomSheet, the first shared component used across all mobile teams, and led the migration of IB screens, establishing patterns for the broader migration.</li>
+                <li>Drove department-wide adoption of Jetpack Compose: built the ComposeBottomSheet, the first shared component used across all mobile teams, and led the migration of IB screens.</li>
             </ul>
         </div>
 
@@ -117,7 +119,7 @@
             </div>
             <p class="role">Graduate Research Assistant</p>
             <ul>
-                <li>Built an Arduino device and Unity games for stroke rehabilitation, translating patient motion into game inputs.</li>
+                <li>Built an <a href="arduino.html">Arduino device</a> and Unity games for stroke rehabilitation, translating patient motion into game inputs.</li>
                 <li>Developed a web interface for patient data visualisation using React and PostgreSQL.</li>
             </ul>
         </div>
@@ -139,7 +141,7 @@
                 <h3>MSc Software Engineering</h3>
                 <span class="date">2018 &ndash; 2020</span>
             </div>
-            <p class="detail">Politecnico di Milano &middot; 110 cum Laude / 110</p>
+            <p class="detail">Politecnico di Milano &middot; 110/110 cum laude</p>
         </div>
 
         <div class="entry">
@@ -152,7 +154,7 @@
 
     </section>
 
-    <section>
+    <section class="projects">
         <h2>University Projects</h2>
 
         <div class="entry">
@@ -160,7 +162,7 @@
                 <h3>Reward Estimation of Risk Sensitive Agents through Gradient-based IRL</h3>
                 <span class="date">2020</span>
             </div>
-            <p class="detail">Master's Thesis</p>
+            <p class="detail">Master's Thesis &ndash; <a href="assets/IRL_thesis_presentation_polimi_clean.pdf" target="_blank" rel="noopener">pdf</a></p>
             <ul>
                 <li>Explored a novel approach to simultaneously estimate an expert's risk sensitivity level and the weights of the optimised reward function.</li>
             </ul>
@@ -168,11 +170,12 @@
 
         <div class="entry">
             <div class="entry-header">
-                <h3>3D Model Reconstruction From Stereo Images</h3>
+                <h3>PixelVR</h3>
                 <span class="date">2018</span>
             </div>
+            <p class="detail">UIC Group project &ndash; <a href="https://www.youtube.com/watch?v=gcnrnk38C50" target="_blank" rel="noopener">video</a></p>
             <ul>
-                <li>Developed a stereo matching and 3D reconstruction pipeline using Python and OpenCV.</li>
+                <li>Created a feature-rich virtual reality 3D voxel editor for the HTC Vive platform using Unity 3D.</li>
             </ul>
         </div>
 
@@ -181,7 +184,7 @@
                 <h3>HackSaic</h3>
                 <span class="date">2019</span>
             </div>
-            <p class="detail">School of the Art Institute of Chicago</p>
+            <p class="detail">Hackathon at the School of the Art Institute of Chicago</p>
             <ul>
                 <li>Created a VR experience using Structure from Motion to map 3D environments from photos. Selected for the Art and Technology Department exhibition.</li>
             </ul>
