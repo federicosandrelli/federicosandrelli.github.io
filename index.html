@@ -76,9 +76,11 @@
                 <h3><a href="https://www.granular-energy.com/">Granular Energy</a></h3>
                 <span class="date">Aug 2025 &ndash; Present</span>
             </div>
-            <p class="role">Backend Software Engineer</p>
+            <p class="role">Backend Software Engineer &mdash; EAC Management Platform </p>
             <ul>
-                <li>Building the reconciliation engine in charge of matching energy certificates to energy contracts at hourly resolution, processing over 300 billion certificates annually.</li>
+                <li>Primary developer of the reconciliation engine powering 24/7 hourly matching of renewable energy certificates, processing over 300 billion certificates annually. Redesigned and rebuilt the engine to replace a legacy system that could not scale to new use cases.</li>
+                <li>Extended the platform from certificate-only to support the Evidend volumetric registry, unblocking enterprise clients including one of the world's largest renewable energy suppliers.</li>
+                <li>Introduced TimescaleDB to the database and migrated the largest tables, reducing load times by 5x for the Demand and Supply dashboards of the most data-intensive clients.</li>
             </ul>
         </div>
 
@@ -90,8 +92,8 @@
             <p class="role">Backend Software Engineer &mdash; ESG Regulations</p>
             <ul>
                 <li>Developed a service to compute and store all ESG metrics for funds, processing 15 billion holdings/day.</li>
-                <li>Solved the fund dependency graph problem in closed form, previously unsolved at Bloomberg, enabling more accurate ESG assessments across thousands of funds.</li>
-                <li>Developed ESG Insights, a TypeScript-based UI for simplified ESG evaluation views.</li>
+                <li>Solved the fund circular-dependency graph problem, previously unsolved at Bloomberg, by replacing a recursive approximation with a lossless model, enabling accurate fund metrics on the Terminal for the first time across ~5,000 affected funds.</li>
+                <li>Led the cross-team collaboration between ESG and Platform teams to design and deliver a shared QC interface. Integrated QC into the Funds dataset with an extensible architecture adopted across all ESG datasets, providing a single source of truth for audit trails and onboarding the Regulations team to reduce regulatory risk.</li>
             </ul>
         </div>
 
@@ -102,9 +104,9 @@
             </div>
             <p class="role">Android Software Engineer</p>
             <ul>
-                <li>Full-stack Android developer for IB, a messaging feature of the Bloomberg Professional app with 200k+ MAUs.</li>
-                <li>Owner of server-side development for BCards, a platform-agnostic UI framework.</li>
-                <li>Drove department-wide adoption of Jetpack Compose and led development of a global mobile design system.</li>
+                <li>Co-architected a platform-agnostic UI framework rendering custom layouts natively across iOS, Android, and desktop. Sole developer of the mobile Python backend and Android frontend. Adopted by 4+ teams (News, Messaging, Market, Search) for 10+ card layouts, reducing new layout delivery from days of cross-team coordination to hours by a single team.</li>
+                <li>Developed core features (message forwarding, file sharing, user settings) for IB, a messaging feature of the Bloomberg Professional app with 200k+ MAUs. All frontend business logic implemented in C++ for cross-platform performance.</li>
+                <li>Drove department-wide adoption of Jetpack Compose: built the ComposeBottomSheet, the first shared component used across all mobile teams, and led the migration of IB screens, establishing patterns for the broader migration.</li>
             </ul>
         </div>
 
@@ -189,7 +191,7 @@
     <section>
         <h2>Skills</h2>
         <p class="skills-list">
-            Python, Kotlin, C++, Android, SQL &middot; TypeScript, React, Node.js
+            Python, Kotlin, SQL, C++, Android &middot; FastAPI, SQLAlchemy, PostgreSQL, TimescaleDB, Docker, Grafana
         </p>
     </section>
 
