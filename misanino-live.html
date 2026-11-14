@@ -59,7 +59,7 @@ ul{list-style:none;margin:0;padding:0}
 .now small{display:block;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#9db4cc}
 .now .who2{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between}
 .now .dn2{font-size:20px;font-weight:700;line-height:1.15;margin:2px 0 4px}
-.now .sub2{font-size:12px;color:#b9c6d3}
+.now .sub2{font-size:12px;color:#b9c6d3;margin-top:6px}.now .st2{font-size:22px;font-weight:700;line-height:1.1}
 .now .tm{text-align:right;flex:none}
 .now .tm b{display:block;font-size:24px;line-height:1.1;margin-bottom:6px}
 .now .tm b.live{color:#fff;font-size:28px;margin-bottom:0;min-width:5.2ch}
@@ -229,6 +229,7 @@ function createStore({storageKey, onChange}){
       tds.forEach((td,i)=>{ const el = td.hasAttribute('data-id') ? td : td.querySelector('[data-id]');
         const m = el && /^r\d+(c\d+)$/.exec(el.getAttribute('data-id')); const cid = m ? m[1] : 'c'+(i+1);
         r.cells[cid]={v:(el||td).textContent.trim(), c:(el||td).className||td.className||''}; });
+      if(o){ r.otrMin=o.otrMin; r.stintStart=o.stintStart; r.stintExact=o.stintExact; } stintClock(r);
       r.inPit=((cell(r,'otr')||{}).c==='to'); { const v=cv(r,'dr'); if(v) r.seen.set(v,(r.seen.get(v)||0)+1); }
       rows.set(rid,r);
     }
@@ -236,6 +237,11 @@ function createStore({storageKey, onChange}){
     for(const r of rows.values()){ r.key=keyOf(r); r.laps=hist[r.key]||(hist[r.key]=[]); }
     recomputeBest();
   }
+  function stintClock(r){ const c=cell(r,'otr'); if(!c) return; if(c.c==='to'){ r.otrMin=-1; r.stintStart=0; return; } // in the pits
+    const m=/^(\d+):(\d+)$/.exec(c.v); if(!m) return; const mins=+m[1]*60+ +m[2];
+    if(r.otrMin===undefined){ r.stintStart=Date.now()-mins*60000-30000; r.stintExact=false; }       // first sight: could be up to a minute further
+    else if(mins!==r.otrMin){ r.stintStart=Date.now()-mins*60000; r.stintExact=true; }              // the counter just ticked
+    r.otrMin=mins; }
   function keyOf(r){ return cv(r,'no') || r.id; }
   // the name cell alternates between team and current driver: the team is what the server says, else the value seen most (first seen on ties)
   function teamName(r){ if(r.team) return r.team; let best='',n=0; for(const [v,c] of r.seen) if(c>n){ best=v; n=c; } return best; }
@@ -248,7 +254,7 @@ function createStore({storageKey, onChange}){
     const type=(cols[cid]||{}).type;
     if(type==='llp' && val){ const t=parseTime(c.v); if(t!=null && t>0){ const now=Date.now(), prev=r.laps[r.laps.length-1];
       if(!(prev && prev.t===t && prev.at && now-prev.at < t*600)) pending.push({r,t,cls:c.c,at:now}); } }
-    if(type==='otr') r.inPit = c.c==='to';
+    if(type==='otr'){ r.inPit = c.c==='to'; stintClock(r); }
     if(type==='dr' && c.v) r.seen.set(c.v,(r.seen.get(c.v)||0)+1);
   }
   function flushLaps(){
@@ -296,7 +302,7 @@ function createStore({storageKey, onChange}){
   function view(r){ const ot=onTrack(r); if(ot) r.onTrack=ot; let cur=r.cur;
     if(!cur&&ot){ const k=Object.keys(r.names).find(k=>r.names[k].toLowerCase()===ot.toLowerCase()); if(k) cur=k.slice(1); }
     return {id:r.id,key:r.key,pos:r.pos,rank:cv(r,'rk'),no:cv(r,'no'),name:teamName(r)||('Kart '+cv(r,'no')),onTrack:ot,gap:cv(r,'gap'),int:cv(r,'int'),
-    otr:cv(r,'otr'),lapsTotal:cv(r,'tlp'),pitCount:cv(r,'pit'),lastText:cv(r,'llp'),lastCls:(cell(r,'llp')||{}).c||'',inPit:r.inPit,laps:r.laps,pits:r.pits,names:r.names,cur,
+    otr:cv(r,'otr'),stintStart:r.stintStart||0,stintExact:!!r.stintExact,lapsTotal:cv(r,'tlp'),pitCount:cv(r,'pit'),lastText:cv(r,'llp'),lastCls:(cell(r,'llp')||{}).c||'',inPit:r.inPit,laps:r.laps,pits:r.pits,names:r.names,cur,
     lastCross:r.lastCross,flashAt:r.flashAt,pinned:pins.has(r.key),...stats(r)}; }
   return { meta, apply, setHistory,
     rows(){ const k=r=>parseInt(cv(r,'rk'),10)||r.pos; return [...rows.values()].sort((a,b)=>k(a)-k(b)||a.pos-b.pos).map(view); },
@@ -461,8 +467,8 @@ function startDemo(feed){
       : !h.at ? '<div class="note">Loading laps from the start of the race…</div>'
       : `<div class="note">${missing>1?'Loaded':'Whole race loaded:'} ${r.laps.length} laps, ${r.pits.length} pit stops. Updates live.${missing>1?` <span style="color:var(--amber)">${missing} early laps are missing: the server only lists a team's most recent laps (about 150), and this device was not open when they were still listed.</span>`:''}</div>`;
     const cs=b.stints[b.stints.length-1], cd=b.drivers.find(d=>d.id===cs.drv), ll=r.laps[r.laps.length-1], racing=cs.laps.filter(l=>!b.pitLaps.has(l.n));
-    bannerCross = r.inPit ? 0 : r.lastCross;
-    const banner=`<div class="now${r.inPit?' inpit':''}"><div class="who2"><div><small>Stint ${cs.i} · ${r.inPit?'in the pits':'on track now'}</small><div class="dn2">${esc(dname(cd))}</div></div>
+    bannerCross = r.inPit ? 0 : r.lastCross; bannerStint = r.inPit ? 0 : r.stintStart; bannerApprox = !r.stintExact;
+    const banner=`<div class="now${r.inPit?' inpit':''}"><div class="who2"><div><small>Stint ${cs.i} · ${r.inPit?'in the pits':'on track now'}</small><div class="dn2">${esc(dname(cd))}</div><small>Stint time</small><div class="st2 num" id="stintTimer">${stintText()}</div></div>
         <div class="sub2 num">${racing.length} laps${cs.st.avg!=null?' · avg '+fmt(cs.st.avg):''}</div></div>
       <div class="tm num"><small>Last lap</small><b class="${ll&&ll.t===r.last?lapCls(ll,cs.st.med):''}">${fmt(r.last)}</b>
         <small>${r.inPit?'Pit timer':'This lap'}</small><b class="live" id="lapTimer">${r.inPit?esc(r.otr.replace(/\.$/,''))||'–':timerText()}</b></div></div>`;
@@ -475,7 +481,7 @@ function startDemo(feed){
   }
   function renderDetail(force){
     if(!openId||editId&&!force) return; const r=store.row(openId); if(!r) return; const h=hist[r.id]||{};
-    const sig=[r.inPit?r.otr:'',r.lastCross,r.laps.length,r.lapsTotal,r.last,r.best,r.pits.length&&r.pits[r.pits.length-1].lap,r.pits.length,filterDrv,r.rank,r.gap,r.inPit,h.at?1:0,h.err,r.pinned,editId,JSON.stringify(custom)].join('|');
+    const sig=[r.inPit?r.otr:'',r.lastCross,r.stintStart,r.laps.length,r.lapsTotal,r.last,r.best,r.pits.length&&r.pits[r.pits.length-1].lap,r.pits.length,filterDrv,r.rank,r.gap,r.inPit,h.at?1:0,h.err,r.pinned,editId,JSON.stringify(custom)].join('|');
     if(sig===detailSig&&!force) return; detailSig=sig;
     const d=$('detail'), y=d.scrollTop; d.innerHTML=detailHtml(r); d.scrollTop=y;
     if(editId){ const i=d.querySelector('input[data-name]'); if(i){ i.focus(); i.select(); } }
@@ -490,9 +496,10 @@ function startDemo(feed){
     renderDetail(false);
     if($('settings').classList.contains('on')) $('raw').textContent=raw.slice(-80).map(l=>l.slice(0,400)).join('\n');
   }
-  let bannerCross=0; // live "this lap" timer in the team banner
+  let bannerCross=0, bannerStint=0, bannerApprox=false; // live "this lap" timer in the team banner
+  function stintText(){ return bannerStint ? (bannerApprox?'~':'')+fmtMs(Date.now()-bannerStint) : '–'; }
   function timerText(){ if(!bannerCross) return '–'; const t=(Date.now()-bannerCross)/1000, m=Math.floor(t/60), x=t-m*60; return m+':'+(x<10?'0':'')+x.toFixed(1); }
-  setInterval(()=>{ if(!openId||!bannerCross) return; const el=$('lapTimer'); if(el) el.textContent=timerText(); },100);
+  setInterval(()=>{ if(!openId||!bannerCross) return; const el=$('lapTimer'); if(el) el.textContent=timerText(); const e2=$('stintTimer'); if(e2){ const t=stintText(); if(e2.textContent!==t) e2.textContent=t; } },100);
   let lastFull=0;
   setInterval(()=>{ const now=Date.now(); if(dirty||now-lastFull>1000){ dirty=false; lastFull=now; render(); } }, 250);
 
