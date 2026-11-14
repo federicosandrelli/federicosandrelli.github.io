@@ -102,7 +102,7 @@ pre{background:var(--panel);border-radius:8px;padding:8px;font-size:10.5px;max-h
 <div class="sheet" id="settings">
   <div class="shead"><button class="back" data-close>‹</button><b>Connection</b></div>
   <div class="set">
-    <label>My team (part of the name) – starred automatically</label><input id="team">
+    <label>My team (optional, part of the name) – starred on this device only</label><input id="team">
     <label>Host</label><input id="host">
     <label>Port (configPort from the track's config.js)</label><input id="port" inputmode="numeric">
     <div style="margin-top:12px"><button class="btn" id="connBtn">Save &amp; connect</button><button class="btn" id="demoBtn2">Demo</button><button class="btn" id="clearBtn">Clear saved laps</button></div>
@@ -135,7 +135,7 @@ function lapStats(ts){ // clean = within 7% of the median (drops pit/traffic lap
 
 /* ---------- ApexFeed: socket + line protocol. API: connect(host,port), ingest(text), close() ---------- */
 function createFeed({onBatch, onStatus, onRaw}){
-  let ws=null, urls=[], idx=0, retry=0, timer=null, stopped=true;
+  let ws=null, urls=[], idx=0, retry=0, timer=null, stopped=true, lastAt=0;
   function parse(text){
     const out=[]; for(const line of text.split('\n')){ if(!line) continue; onRaw(line);
       const i=line.indexOf('|'); if(i<0) continue; const j=line.indexOf('|',i+1);
@@ -145,16 +145,20 @@ function createFeed({onBatch, onStatus, onRaw}){
   function open(){
     if(stopped) return; const url=urls[idx%urls.length]; onStatus('connecting',url); let got=false, me;
     try{ me=ws=new WebSocket(url); }catch(e){ idx++; return again(); }
-    me.onopen=()=>{ if(me===ws) onStatus('open',url); };
-    me.onmessage=e=>{ if(me!==ws||typeof e.data!=='string') return; got=true; retry=0; onBatch(parse(e.data)); };
+    me.onopen=()=>{ if(me===ws){ lastAt=Date.now(); onStatus('open',url); } };
+    me.onmessage=e=>{ if(me!==ws||typeof e.data!=='string') return; got=true; retry=0; lastAt=Date.now(); onBatch(parse(e.data)); };
     me.onclose=()=>{ if(me!==ws||stopped) return; if(!got) idx++; again(); };
   }
   function again(){ onStatus('retry'); clearTimeout(timer); timer=setTimeout(open, Math.min(1000*2**retry++,15000)); }
+  function restart(){ const w=ws; ws=null; clearTimeout(timer); if(w){ try{w.close()}catch(e){} } onStatus('retry'); open(); }
+  setInterval(()=>{ if(!stopped&&ws&&ws.readyState===1&&Date.now()-lastAt>12000) restart(); },3000);
   function close(){ stopped=true; clearTimeout(timer); if(ws){ const w=ws; ws=null; try{w.close()}catch(e){} } }
   return {
     connect(host,port){ close(); stopped=false; idx=0; retry=0;
       urls=[`wss://${host}:${port+3}/`]; if(location.protocol!=='https:') urls.push(`ws://${host}:${port+2}/`); open(); },
     ingest(text){ onBatch(parse(text)); },
+    kick(){ if(!stopped&&(!ws||ws.readyState!==1||Date.now()-lastAt>4000)) restart(); }, // e.g. when the tab comes back to the foreground
+    age(){ return lastAt?Date.now()-lastAt:Infinity; },
     close
   };
 }
@@ -179,9 +183,9 @@ function createHistory(cfg){
   }
   async function post(request){ const res=await fetch('https://'+cfg.host+'/live-timing/commonv2/functions/request.php',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
       body:'port='+cfg.port+'&request='+encodeURIComponent(request)}); return res.status+' '+(await res.text()); }
-  return { post, async fetch(rowId){
+  return { post, async fetch(rowId,param){
     const res=await fetch('https://'+cfg.host+'/live-timing/commonv2/functions/request.php',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body:'port='+cfg.port+'&request='+encodeURIComponent('D#-999#D'+rowId.slice(1))});
+      body:'port='+cfg.port+'&request='+encodeURIComponent('D#'+(param==null?-999:param)+'#D'+rowId.slice(1))});
     if(!res.ok) throw new Error('HTTP '+res.status); return parse(await res.text(),rowId.slice(1)); } };
 }
 
@@ -228,7 +232,7 @@ function createStore({storageKey, onChange}){
   function teamName(r){ if(r.team) return r.team; let best='',n=0; for(const [v,c] of r.seen) if(c>n){ best=v; n=c; } return best; }
   function onTrack(r){ const v=cv(r,'dr'), t=teamName(r); return v && v!==t ? v : (r.onTrack||''); }
   function recomputeBest(){ let b=null; for(const r of rows.values()){ const p=ownBest(r); if(p!=null&&(b==null||p<b)) b=p; } meta.sessionBest=b; }
-  function ownBest(r){ let b=parseTime(cv(r,'blp')); for(const l of r.laps) if(b==null||l.t<b) b=l.t; return b; }
+  function ownBest(r){ let b=parseTime(cv(r,'blp')); if(b!=null) return b; for(const l of r.laps) if(b==null||l.t<b) b=l.t; return b; } // official best when the feed has it
 
   function onCell(r,cid,cls,val){
     const c=r.cells[cid]||(r.cells[cid]={v:'',c:''}); if(cls) c.c=cls; if(val!==undefined) c.v=strip(val);
@@ -264,16 +268,19 @@ function createStore({storageKey, onChange}){
     }
     flushLaps(); onChange();
   }
-  function setHistory(id,h){ // replace a team's laps with the server's full-race list, keep newer live laps
-    const r=rows.get(id); if(!r) return; if(h.team) r.team=h.team; Object.assign(r.names,h.names); if(!h.laps.length){ onChange(); return; }
-    const maxN=h.laps[h.laps.length-1].n, live=r.laps.filter(l=>l.n>maxN), all=[...h.laps,...live]; let best=null;
-    for(const l of all){ l.pb = best==null||l.t<best; if(l.pb) best=l.t; l.sb = l.pb && meta.sessionBest!=null && l.t<=meta.sessionBest+0.0005; }
-    r.laps.length=0; r.laps.push(...all); r.pits=h.pits; Object.assign(r.names,h.names); r.cur=h.current||null; if(h.team) r.team=h.team;
-    if(meta.sessionBest==null||best<meta.sessionBest) meta.sessionBest=best;
+  function setHistory(id,h){ // merge the server's lap list into what we hold; the server only lists the most recent laps, so never drop older ones
+    const r=rows.get(id); if(!r) return; if(h.team) r.team=h.team; Object.assign(r.names,h.names);
+    if(h.pits.length>=r.pits.length) r.pits=h.pits; if(h.current) r.cur=h.current;
+    if(h.laps.length){ const byN=new Map(); for(const l of r.laps) byN.set(l.n,l);
+      for(const l of h.laps){ const o=byN.get(l.n); if(o&&o.at) l.at=o.at; byN.set(l.n,l); }
+      const all=[...byN.values()].sort((a,b)=>a.n-b.n); let best=null;
+      for(const l of all){ l.pb = best==null||l.t<best; if(l.pb) best=l.t; l.sb = l.pb && meta.sessionBest!=null && l.t<=meta.sessionBest+0.0005; }
+      r.laps.length=0; r.laps.push(...all);
+      if(meta.sessionBest==null||best<meta.sessionBest) meta.sessionBest=best; }
     onChange();
   }
   function stats(r){
-    const ts=r.laps.map(l=>l.t), best=ownBest(r), last=ts.length?ts[ts.length-1]:parseTime(cv(r,'llp'));
+    const ts=r.laps.map(l=>l.t), best=ownBest(r), live=parseTime(cv(r,'llp')), last=live!=null?live:(ts.length?ts[ts.length-1]:null);
     const s=lapStats(ts.slice(-15)), c5=s.clean.slice(-5);
     return {best,last,med:s.med,pace:c5.length?c5.reduce((a,b)=>a+b,0)/c5.length:null,sd:s.sd};
   }
@@ -283,7 +290,7 @@ function createStore({storageKey, onChange}){
     lapsTotal:cv(r,'tlp'),pitCount:cv(r,'pit'),lastText:cv(r,'llp'),lastCls:(cell(r,'llp')||{}).c||'',inPit:r.inPit,laps:r.laps,pits:r.pits,names:r.names,cur,
     lastCross:r.lastCross,flashAt:r.flashAt,pinned:pins.has(r.key),...stats(r)}; }
   return { meta, apply, setHistory,
-    rows(){ return [...rows.values()].sort((a,b)=>a.pos-b.pos).map(view); },
+    rows(){ const k=r=>parseInt(cv(r,'rk'),10)||r.pos; return [...rows.values()].sort((a,b)=>k(a)-k(b)||a.pos-b.pos).map(view); },
     row(id){ const r=rows.get(id); return r?view(r):null; },
     togglePin(key){ pins.has(key)?pins.delete(key):pins.add(key); save(); onChange(); },
     clear(){ hist={}; for(const r of rows.values()){ r.laps=hist[r.key]=[]; r.pits=[]; } recomputeBest(); save(); onChange(); } };
@@ -329,7 +336,7 @@ function startDemo(feed){
 /* ---------- View ---------- */
 (function main(){
   const q=new URLSearchParams(location.search);
-  const cfg={host:q.get('host')||'live-data.apex-timing.com', port:parseInt(q.get('port')||'8040',10), team:'tronco'};
+  const cfg={host:q.get('host')||'live-data.apex-timing.com', port:parseInt(q.get('port')||'8040',10), team:''};
   try{ const s=JSON.parse(localStorage.getItem('apexlive:cfg')||'null'); if(s){ if(!q.get('port')){ cfg.host=s.host; cfg.port=s.port; } if(s.team!=null) cfg.team=s.team; } }catch(e){}
   let custom={}; try{ custom=JSON.parse(localStorage.getItem('apexlive:names')||'{}'); }catch(e){}
   let sort='pos', dirty=true, openId=null, filterDrv=null, editId=null, detailSig='', demoTimer=null, raw=[], autoPinned=false;
@@ -347,7 +354,11 @@ function startDemo(feed){
   async function loadHistory(id){
     if(demoTimer) return; const h=hist[id]||(hist[id]={}); if(h.busy) return; h.busy=true;
     try{ const d=await history.fetch(id); store.setHistory(id,d); h.at=Date.now(); h.err=d.laps.length?'':'The server returned no laps for this team yet.';
-      if(!h.logged){ h.logged=true; raw.push('HIST '+id+' laps='+d.laps.length+' pits='+d.pits.length, ...d.other.slice(0,40).map(l=>'HIST '+l.slice(0,3000))); } }
+      if(!h.logged){ h.logged=true; raw.push('HIST '+id+' laps='+d.laps.length+' pits='+d.pits.length, ...d.other.slice(0,40).map(l=>'HIST '+l.slice(0,3000))); }
+      const r0=store.row(id), first=r0&&r0.laps.length?r0.laps[0].n:1;
+      if(first>1&&!h.older){ h.older=true; for(const prm of [first,first-1,1,-first,-5000]){ try{ const o=await history.fetch(id,prm), lo=o.laps.filter(l=>l.n<first);
+          raw.push('HIST older '+id+' param='+prm+' laps='+o.laps.length+(o.laps.length?' range='+o.laps[0].n+'-'+o.laps[o.laps.length-1].n:'')+' new='+lo.length);
+          if(lo.length){ store.setHistory(id,{laps:lo,pits:[],names:{},team:'',current:null}); break; } }catch(e){ raw.push('HIST older '+id+' param='+prm+' FAIL '+e); } } } }
     catch(e){ h.err='Could not load the race history ('+(e.message||e)+').'; h.at=Date.now()-25000; }
     h.busy=false; dirty=true; detailSig='';
   }
@@ -356,13 +367,14 @@ function startDemo(feed){
     if(!autoPinned && cfg.team){ autoPinned=true; let done=''; try{ done=localStorage.getItem('apexlive:autopin')||''; }catch(e){}
       if(done!==cfg.team){ const r=rows.find(x=>x.name.toLowerCase().includes(cfg.team.toLowerCase())); if(r){ if(!r.pinned) store.togglePin(r.key); try{ localStorage.setItem('apexlive:autopin',cfg.team); }catch(e){} } else autoPinned=false; } }
     const now=Date.now(); if(!bgBusy){ const todo=rows.filter(r=>!hist[r.id]); if(todo.length){ bgBusy=true; (async()=>{ for(const r of todo){ await loadHistory(r.id); await new Promise(f=>setTimeout(f,400)); } bgBusy=false; })(); } }
-    for(const r of rows) if(r.pinned||r.id===openId){ const h=hist[r.id]; if(!h||!h.at||now-h.at>40000) loadHistory(r.id); }
+    for(const r of rows){ const sig=r.pitCount+'|'+r.inPit, h=hist[r.id]; if(h&&h.sig!==undefined&&h.sig!==sig) h.at=0; if(h) h.sig=sig; // a pit stop changes the stints
+      if((r.pinned||r.id===openId)&&(!h||!h.at||now-h.at>(r.id===openId?20000:40000))) loadHistory(r.id); }
   }, 3000);
 
   const lapCls = (l,med) => l.sb?'sb':l.pb?'pb':(med&&l.t>med*1.03?'slow':'');
   function rowHtml(r,now){
     const lastLap=r.laps[r.laps.length-1];
-    const cls = lastLap ? lapCls(lastLap,r.med) : /^tb/.test(r.lastCls)?'sb':/^ti/.test(r.lastCls)?'pb':'';
+    const cls = lastLap && lastLap.t===r.last ? lapCls(lastLap,r.med) : /^tb/.test(r.lastCls)?'sb':/^ti/.test(r.lastCls)?'pb':'';
     const d = r.last!=null&&r.best!=null ? r.last-r.best : null;
     const meta=[]; if(r.inPit) meta.push('<span class="pit">PIT</span>'); if(r.gap) meta.push(esc(r.gap)); if(r.onTrack) meta.push(esc(r.onTrack)); if(r.lapsTotal) meta.push(esc(r.lapsTotal)+' laps'); if(r.pitCount&&r.pitCount!=='0') meta.push(esc(r.pitCount)+' pit');
     const recent=r.laps.slice(-14), ref=r.med?r.med*1.06:null;
@@ -414,7 +426,7 @@ function startDemo(feed){
   }
   function detailHtml(r){
     const b=breakdown(r), sb=store.meta.sessionBest, h=hist[r.id]||{}, hasPits=r.pits.length>0;
-    const tb=r.laps.length?Math.min(...r.laps.map(l=>l.t)):r.best; // team best from the same laps the people table uses
+    const tb=r.best, listBest=r.laps.length?Math.min(...r.laps.map(l=>l.t)):null; // official team best; listBest = fastest lap the server actually listed
     const missing=(parseInt(r.lapsTotal,10)||0)-r.laps.length;
     const dname=d=>custom[r.key+':'+d.id]||r.names[d.id]||d.label;
     if(filterDrv && !b.drivers.some(d=>d.id===filterDrv)) filterDrv=null;
@@ -427,6 +439,7 @@ function startDemo(feed){
       <tr data-drv="" class="${sel?'':'on'}"><td><span class="dn">Whole team</span></td><td>${r.laps.length}</td><td>${fmt(tb)}</td><td></td><td></td></tr>`+
       b.drivers.map(d=>`<tr data-drv="${d.id}" class="${sel===d?'on':''}"><td>${editId===d.id?`<input data-name="${d.id}" value="${esc(dname(d))}">`:`<span class="dn">${esc(dname(d))} <button class="ren" data-ren="${d.id}" aria-label="Rename">✎</button></span>`}<small>stint ${d.stints.map(s=>s.i).join(', ')}</small></td>
         <td>${d.st.n}</td><td class="${d.st.best!=null&&d.st.best===tb?'pb':''}">${fmt(d.st.best)}</td><td class="${d.st.avg!=null&&d.st.avg===bestAvg?'pb':''}">${fmt(d.st.avg)}</td><td>${d.st.sd!=null?d.st.sd.toFixed(2):''}</td></tr>`).join('')+'</tbody></table>'+
+      (tb!=null&&listBest!=null&&listBest>tb+0.0005?`<div class="note" style="color:var(--amber)">Official team best ${fmt(tb)} was set on a lap the server did not include in its list, so no driver shows it. Fastest listed lap: ${fmt(listBest)}.</div>`:'')+
       '<div class="note">Average and ± leave out pit laps and laps more than 7% off the median. PIT rows show the time spent in the pits, not the lap time. Tap ✎ to correct a name.</div>';
     const hasSec=laps.some(l=>l.s&&l.s.some(x=>x!=null)), cols=4+(hasSec?3:0);
     const stints=(sel?sel.stints:b.stints).slice().reverse();
@@ -437,7 +450,7 @@ function startDemo(feed){
         return `<tr><td>${l.n}</td>${pit?`<td class="slow"><span class="pit">PIT</span> <b>${fmtMs(stop.pitMs)}</b></td>`:`<td class="${lapCls(l,s.st.med)}"><b>${fmt(l.t)}</b></td>`}<td>${tb!=null&&!pit?fmtD(l.t-tb):''}</td><td>${sb!=null&&!pit?fmtD(l.t-sb):''}</td>${hasSec?(l.s||[null,null,null]).map(x=>`<td>${x!=null?x.toFixed(3):''}</td>`).join(''):''}</tr>`; }).join(''); }).join('');
     const histNote = demoTimer ? '' : h.err ? `<div class="note" style="color:var(--amber)">${esc(h.err)} Showing only laps seen since this page was opened.</div>`
       : !h.at ? '<div class="note">Loading laps from the start of the race…</div>'
-      : `<div class="note">Whole race loaded: ${r.laps.length} laps, ${r.pits.length} pit stops. Updates live.${missing>1?` <span style="color:var(--amber)">${missing} laps counted by timing are not in the list the server sent.</span>`:''}</div>`;
+      : `<div class="note">${missing>1?'Loaded':'Whole race loaded:'} ${r.laps.length} laps, ${r.pits.length} pit stops. Updates live.${missing>1?` <span style="color:var(--amber)">${missing} early laps are missing: the server only lists a team's most recent laps (about 150), and this device was not open when they were still listed.</span>`:''}</div>`;
     return `<div class="shead"><button class="back" data-close>‹</button><span class="no num" style="padding:3px 8px">${esc(r.no)}</span>
         <div style="flex:1;min-width:0"><div class="name">${esc(r.name)}</div><div class="meta num">P${esc(r.rank||r.pos)}${r.gap?' · '+esc(r.gap):''}${r.lapsTotal?' · '+esc(r.lapsTotal)+' laps':''}${r.inPit?' · <span class="pit">PIT</span>':''}</div></div>
         <button class="star" data-pin="${esc(r.key)}" style="color:${r.pinned?'var(--pin)':'#56616d'}">${r.pinned?'★':'☆'}</button></div>
@@ -447,7 +460,7 @@ function startDemo(feed){
   }
   function renderDetail(force){
     if(!openId||editId&&!force) return; const r=store.row(openId); if(!r) return; const h=hist[r.id]||{};
-    const sig=[r.laps.length,r.lapsTotal,r.pits.length,filterDrv,r.rank,r.gap,r.inPit,h.at?1:0,h.err,r.pinned,editId,JSON.stringify(custom)].join('|');
+    const sig=[r.laps.length,r.lapsTotal,r.last,r.best,r.pits.length&&r.pits[r.pits.length-1].lap,r.pits.length,filterDrv,r.rank,r.gap,r.inPit,h.at?1:0,h.err,r.pinned,editId,JSON.stringify(custom)].join('|');
     if(sig===detailSig&&!force) return; detailSig=sig;
     const d=$('detail'), y=d.scrollTop; d.innerHTML=detailHtml(r); d.scrollTop=y;
     if(editId){ const i=d.querySelector('input[data-name]'); if(i){ i.focus(); i.select(); } }
@@ -493,6 +506,8 @@ function startDemo(feed){
     else $('copyBtn').textContent='Select all below + copy';
   };
 
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState!=='visible'||demoTimer) return; feed.kick(); for(const k in hist) hist[k].at=0; dirty=true; });
+  setInterval(()=>{ if(demoTimer) return; const el=$('status'); if(el.classList.contains('open')) el.textContent = feed.age()>5000 ? '● stalled' : '● live'; },1000);
   if(location.hash==='#demo') demo(); else connect();
 })();
 </script>
