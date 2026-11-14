@@ -295,8 +295,8 @@ function breakdown(r){
   r.pits.forEach((p,i)=>{ stints.push({i:i+1,from,to:p.lap,drv:'d'+p.driverId,pit:p,laps:[]}); from=p.lap+1; });
   stints.push({i:r.pits.length+1,from,to:Infinity,drv:r.cur?'d'+r.cur:'cur',pit:null,laps:[]});
   // the lap that contains a stop: found by its time (far slower than normal) next to the recorded pit lap, not assumed
-  const med=median(r.laps.map(l=>l.t)), pitLaps=new Set();
-  if(med) for(const p of r.pits) for(const l of r.laps) if(l.n>=p.lap&&l.n<=p.lap+2&&l.t>med*1.25) pitLaps.add(l.n);
+  const med=median(r.laps.map(l=>l.t)), pitLaps=new Map(); // lap number -> the stop it contains
+  if(med) for(const p of r.pits) for(const l of r.laps) if(l.n>=p.lap&&l.n<=p.lap+2&&l.t>med*1.25&&!pitLaps.has(l.n)) pitLaps.set(l.n,p);
   const drivers=new Map(); let num=0;
   for(const s of stints){ if(!drivers.has(s.drv)) drivers.set(s.drv,{id:s.drv,stints:[],laps:[],label:s.drv==='cur'?(r.onTrack||'On track now'):s.drv==='d0'?'Starter':'Driver '+(++num)}); drivers.get(s.drv).stints.push(s); }
   for(const l of r.laps){ const s=stints.find(s=>l.n>=s.from&&l.n<=s.to)||stints[stints.length-1]; s.laps.push(l); drivers.get(s.drv).laps.push(l); }
@@ -405,7 +405,7 @@ function startDemo(feed){
     let path='', prev=null; for(const l of laps){ path+=(prev!=null&&l.n===prev+1?'L':'M')+x(l.n).toFixed(1)+' '+y(l.t).toFixed(1)+' '; prev=l.n; }
     const rad=laps.length>60?1.7:2.5;
     const dots=laps.map(l=>{ const over=l.t>hi, c=l.sb?'var(--purple)':l.pb?'var(--green)':over?'var(--amber)':'#9aa5b1'; return `<circle cx="${x(l.n).toFixed(1)}" cy="${y(l.t).toFixed(1)}" r="${rad}" fill="${over?'none':c}" stroke="${c}" stroke-width="1.2"/>`; }).join('');
-    const pitsV=[...pitLaps].filter(n=>n>=n0&&n<=n1).map(n=>`<line x1="${x(n)}" x2="${x(n)}" y1="${T}" y2="${H-B}" stroke="var(--amber)" opacity=".35"/>`).join('');
+    const pitsV=[...pitLaps.keys()].filter(n=>n>=n0&&n<=n1).map(n=>`<line x1="${x(n)}" x2="${x(n)}" y1="${T}" y2="${H-B}" stroke="var(--amber)" opacity=".35"/>`).join('');
     return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Lap times">${pitsV}<line x1="${L}" x2="${W-R}" y1="${y(lo)}" y2="${y(lo)}" stroke="var(--green)" stroke-dasharray="3 3" opacity=".6"/>
       <path d="${path}" fill="none" stroke="#6b7785" stroke-width="1.2"/>${dots}
       <g font-size="9.5" fill="#8b95a1" font-family="ui-monospace,monospace"><text x="4" y="${y(lo)+3}">${fmt(lo)}</text><text x="4" y="${T+4}">${fmt(hi)}</text>
@@ -427,13 +427,14 @@ function startDemo(feed){
       <tr data-drv="" class="${sel?'':'on'}"><td><span class="dn">Whole team</span></td><td>${r.laps.length}</td><td>${fmt(tb)}</td><td></td><td></td></tr>`+
       b.drivers.map(d=>`<tr data-drv="${d.id}" class="${sel===d?'on':''}"><td>${editId===d.id?`<input data-name="${d.id}" value="${esc(dname(d))}">`:`<span class="dn">${esc(dname(d))} <button class="ren" data-ren="${d.id}" aria-label="Rename">✎</button></span>`}<small>stint ${d.stints.map(s=>s.i).join(', ')}</small></td>
         <td>${d.st.n}</td><td class="${d.st.best!=null&&d.st.best===tb?'pb':''}">${fmt(d.st.best)}</td><td class="${d.st.avg!=null&&d.st.avg===bestAvg?'pb':''}">${fmt(d.st.avg)}</td><td>${d.st.sd!=null?d.st.sd.toFixed(2):''}</td></tr>`).join('')+'</tbody></table>'+
-      '<div class="note">Average and ± leave out pit laps and laps more than 7% off the median. Tap ✎ to correct a name.</div>';
+      '<div class="note">Average and ± leave out pit laps and laps more than 7% off the median. PIT rows show the time spent in the pits, not the lap time. Tap ✎ to correct a name.</div>';
     const hasSec=laps.some(l=>l.s&&l.s.some(x=>x!=null)), cols=4+(hasSec?3:0);
     const stints=(sel?sel.stints:b.stints).slice().reverse();
     const body=stints.map(s=>{ if(!s.laps.length) return ''; const d=b.drivers.find(d=>d.id===s.drv);
       const head=hasPits?`<tr class="sh"><td colspan="${cols}">Stint ${s.i} · <b>${esc(dname(d))}</b> · laps ${s.laps[0].n}–${s.laps[s.laps.length-1].n} · avg <span class="num">${fmt(s.st.avg)}</span>${s.pit?' · then pit '+fmtMs(s.pit.pitMs):''}</td></tr>`:'';
       return head+s.laps.slice().reverse().map(l=>{ const pit=b.pitLaps.has(l.n);
-        return `<tr><td>${l.n}</td><td class="${pit?'slow':lapCls(l,s.st.med)}"><b>${fmt(l.t)}</b>${pit?' <span class="pit">PIT</span>':''}</td><td>${tb!=null&&!pit?fmtD(l.t-tb):''}</td><td>${sb!=null&&!pit?fmtD(l.t-sb):''}</td>${hasSec?(l.s||[null,null,null]).map(x=>`<td>${x!=null?x.toFixed(3):''}</td>`).join(''):''}</tr>`; }).join(''); }).join('');
+        const stop=b.pitLaps.get(l.n);
+        return `<tr><td>${l.n}</td>${pit?`<td class="slow"><span class="pit">PIT</span> <b>${fmtMs(stop.pitMs)}</b></td>`:`<td class="${lapCls(l,s.st.med)}"><b>${fmt(l.t)}</b></td>`}<td>${tb!=null&&!pit?fmtD(l.t-tb):''}</td><td>${sb!=null&&!pit?fmtD(l.t-sb):''}</td>${hasSec?(l.s||[null,null,null]).map(x=>`<td>${x!=null?x.toFixed(3):''}</td>`).join(''):''}</tr>`; }).join(''); }).join('');
     const histNote = demoTimer ? '' : h.err ? `<div class="note" style="color:var(--amber)">${esc(h.err)} Showing only laps seen since this page was opened.</div>`
       : !h.at ? '<div class="note">Loading laps from the start of the race…</div>'
       : `<div class="note">Whole race loaded: ${r.laps.length} laps, ${r.pits.length} pit stops. Updates live.${missing>1?` <span style="color:var(--amber)">${missing} laps counted by timing are not in the list the server sent.</span>`:''}</div>`;
