@@ -294,11 +294,14 @@ function breakdown(r){
   const stints=[]; let from=1;
   r.pits.forEach((p,i)=>{ stints.push({i:i+1,from,to:p.lap,drv:'d'+p.driverId,pit:p,laps:[]}); from=p.lap+1; });
   stints.push({i:r.pits.length+1,from,to:Infinity,drv:r.cur?'d'+r.cur:'cur',pit:null,laps:[]});
-  const pitLaps=new Set(r.pits.map(p=>p.lap+1)); // the lap that contains the stop
+  // the lap that contains a stop: found by its time (far slower than normal) next to the recorded pit lap, not assumed
+  const med=median(r.laps.map(l=>l.t)), pitLaps=new Set();
+  if(med) for(const p of r.pits) for(const l of r.laps) if(l.n>=p.lap&&l.n<=p.lap+2&&l.t>med*1.25) pitLaps.add(l.n);
   const drivers=new Map(); let num=0;
   for(const s of stints){ if(!drivers.has(s.drv)) drivers.set(s.drv,{id:s.drv,stints:[],laps:[],label:s.drv==='cur'?(r.onTrack||'On track now'):s.drv==='d0'?'Starter':'Driver '+(++num)}); drivers.get(s.drv).stints.push(s); }
   for(const l of r.laps){ const s=stints.find(s=>l.n>=s.from&&l.n<=s.to)||stints[stints.length-1]; s.laps.push(l); drivers.get(s.drv).laps.push(l); }
-  const st=laps=>({n:laps.length,...lapStats(laps.filter(l=>!pitLaps.has(l.n)&&l.n>1).map(l=>l.t))});
+  // best = fastest lap of all; average/spread leave out pit laps and the standing-start lap
+  const st=laps=>({n:laps.length,...lapStats(laps.filter(l=>!pitLaps.has(l.n)&&l.n>1).map(l=>l.t)),best:laps.length?Math.min(...laps.map(l=>l.t)):null});
   for(const d of drivers.values()) d.st=st(d.laps); for(const s of stints) s.st=st(s.laps);
   return {stints,drivers:[...drivers.values()],pitLaps};
 }
@@ -411,37 +414,39 @@ function startDemo(feed){
   }
   function detailHtml(r){
     const b=breakdown(r), sb=store.meta.sessionBest, h=hist[r.id]||{}, hasPits=r.pits.length>0;
+    const tb=r.laps.length?Math.min(...r.laps.map(l=>l.t)):r.best; // team best from the same laps the people table uses
+    const missing=(parseInt(r.lapsTotal,10)||0)-r.laps.length;
     const dname=d=>custom[r.key+':'+d.id]||r.names[d.id]||d.label;
     if(filterDrv && !b.drivers.some(d=>d.id===filterDrv)) filterDrv=null;
     const sel=filterDrv?b.drivers.find(d=>d.id===filterDrv):null, laps=sel?sel.laps:r.laps;
     const tiles = sel
       ? `<div class="tile"><small>Laps</small><b>${sel.st.n}</b></div><div class="tile"><small>Best</small><b class="pb">${fmt(sel.st.best)}</b></div><div class="tile"><small>Average</small><b>${fmt(sel.st.avg)}</b></div><div class="tile"><small>Spread</small><b>${sel.st.sd!=null?'±'+sel.st.sd.toFixed(3):'–'}</b></div>`
-      : `<div class="tile"><small>Last</small><b>${fmt(r.last)}</b></div><div class="tile"><small>Best</small><b class="pb">${fmt(r.best)}</b></div><div class="tile"><small>Pace (5)</small><b>${fmt(r.pace)}</b></div><div class="tile"><small>Spread</small><b>${r.sd!=null?'±'+r.sd.toFixed(3):'–'}</b></div>`;
+      : `<div class="tile"><small>Last</small><b>${fmt(r.last)}</b></div><div class="tile"><small>Best</small><b class="pb">${fmt(tb)}</b></div><div class="tile"><small>Pace (5)</small><b>${fmt(r.pace)}</b></div><div class="tile"><small>Spread</small><b>${r.sd!=null?'±'+r.sd.toFixed(3):'–'}</b></div>`;
     const bestAvg=Math.min(...b.drivers.map(d=>d.st.avg??1e9));
     const drv = !hasPits ? '' : `<h3>People – tap to filter</h3><table class="num drv"><thead><tr><th>Driver</th><th>Laps</th><th>Best</th><th>Average</th><th>±</th></tr></thead><tbody>
-      <tr data-drv="" class="${sel?'':'on'}"><td><span class="dn">Whole team</span></td><td>${r.laps.length}</td><td>${fmt(r.best)}</td><td></td><td></td></tr>`+
+      <tr data-drv="" class="${sel?'':'on'}"><td><span class="dn">Whole team</span></td><td>${r.laps.length}</td><td>${fmt(tb)}</td><td></td><td></td></tr>`+
       b.drivers.map(d=>`<tr data-drv="${d.id}" class="${sel===d?'on':''}"><td>${editId===d.id?`<input data-name="${d.id}" value="${esc(dname(d))}">`:`<span class="dn">${esc(dname(d))} <button class="ren" data-ren="${d.id}" aria-label="Rename">✎</button></span>`}<small>stint ${d.stints.map(s=>s.i).join(', ')}</small></td>
-        <td>${d.st.n}</td><td>${fmt(d.st.best)}</td><td class="${d.st.avg!=null&&d.st.avg===bestAvg?'pb':''}">${fmt(d.st.avg)}</td><td>${d.st.sd!=null?d.st.sd.toFixed(2):''}</td></tr>`).join('')+'</tbody></table>'+
+        <td>${d.st.n}</td><td class="${d.st.best!=null&&d.st.best===tb?'pb':''}">${fmt(d.st.best)}</td><td class="${d.st.avg!=null&&d.st.avg===bestAvg?'pb':''}">${fmt(d.st.avg)}</td><td>${d.st.sd!=null?d.st.sd.toFixed(2):''}</td></tr>`).join('')+'</tbody></table>'+
       '<div class="note">Average and ± leave out pit laps and laps more than 7% off the median. Tap ✎ to correct a name.</div>';
     const hasSec=laps.some(l=>l.s&&l.s.some(x=>x!=null)), cols=4+(hasSec?3:0);
     const stints=(sel?sel.stints:b.stints).slice().reverse();
     const body=stints.map(s=>{ if(!s.laps.length) return ''; const d=b.drivers.find(d=>d.id===s.drv);
       const head=hasPits?`<tr class="sh"><td colspan="${cols}">Stint ${s.i} · <b>${esc(dname(d))}</b> · laps ${s.laps[0].n}–${s.laps[s.laps.length-1].n} · avg <span class="num">${fmt(s.st.avg)}</span>${s.pit?' · then pit '+fmtMs(s.pit.pitMs):''}</td></tr>`:'';
       return head+s.laps.slice().reverse().map(l=>{ const pit=b.pitLaps.has(l.n);
-        return `<tr><td>${l.n}</td><td class="${pit?'slow':lapCls(l,s.st.med)}"><b>${fmt(l.t)}</b>${pit?' <span class="pit">PIT</span>':''}</td><td>${r.best!=null&&!pit?fmtD(l.t-r.best):''}</td><td>${sb!=null&&!pit?fmtD(l.t-sb):''}</td>${hasSec?(l.s||[null,null,null]).map(x=>`<td>${x!=null?x.toFixed(3):''}</td>`).join(''):''}</tr>`; }).join(''); }).join('');
+        return `<tr><td>${l.n}</td><td class="${pit?'slow':lapCls(l,s.st.med)}"><b>${fmt(l.t)}</b>${pit?' <span class="pit">PIT</span>':''}</td><td>${tb!=null&&!pit?fmtD(l.t-tb):''}</td><td>${sb!=null&&!pit?fmtD(l.t-sb):''}</td>${hasSec?(l.s||[null,null,null]).map(x=>`<td>${x!=null?x.toFixed(3):''}</td>`).join(''):''}</tr>`; }).join(''); }).join('');
     const histNote = demoTimer ? '' : h.err ? `<div class="note" style="color:var(--amber)">${esc(h.err)} Showing only laps seen since this page was opened.</div>`
       : !h.at ? '<div class="note">Loading laps from the start of the race…</div>'
-      : `<div class="note">Whole race loaded: ${r.laps.length} laps, ${r.pits.length} pit stops. Updates live.</div>`;
+      : `<div class="note">Whole race loaded: ${r.laps.length} laps, ${r.pits.length} pit stops. Updates live.${missing>1?` <span style="color:var(--amber)">${missing} laps counted by timing are not in the list the server sent.</span>`:''}</div>`;
     return `<div class="shead"><button class="back" data-close>‹</button><span class="no num" style="padding:3px 8px">${esc(r.no)}</span>
         <div style="flex:1;min-width:0"><div class="name">${esc(r.name)}</div><div class="meta num">P${esc(r.rank||r.pos)}${r.gap?' · '+esc(r.gap):''}${r.lapsTotal?' · '+esc(r.lapsTotal)+' laps':''}${r.inPit?' · <span class="pit">PIT</span>':''}</div></div>
         <button class="star" data-pin="${esc(r.key)}" style="color:${r.pinned?'var(--pin)':'#56616d'}">${r.pinned?'★':'☆'}</button></div>
       ${histNote}<div class="tiles num">${tiles}</div>${drv}
-      <h3>${sel?esc(dname(sel))+' – laps':'Laps'}</h3><div class="chart">${chart(laps,b.pitLaps,sel?sel.st.best:r.best)}</div>
+      <h3>${sel?esc(dname(sel))+' – laps':'Laps'}</h3><div class="chart">${chart(laps,b.pitLaps,sel?sel.st.best:tb)}</div>
       <table class="num laps"><thead><tr><th>Lap</th><th>Time</th><th>Δ team best</th><th>Δ session</th>${hasSec?'<th>S1</th><th>S2</th><th>S3</th>':''}</tr></thead><tbody>${body}</tbody></table>`;
   }
   function renderDetail(force){
     if(!openId||editId&&!force) return; const r=store.row(openId); if(!r) return; const h=hist[r.id]||{};
-    const sig=[r.laps.length,r.pits.length,filterDrv,r.rank,r.gap,r.inPit,h.at?1:0,h.err,r.pinned,editId,JSON.stringify(custom)].join('|');
+    const sig=[r.laps.length,r.lapsTotal,r.pits.length,filterDrv,r.rank,r.gap,r.inPit,h.at?1:0,h.err,r.pinned,editId,JSON.stringify(custom)].join('|');
     if(sig===detailSig&&!force) return; detailSig=sig;
     const d=$('detail'), y=d.scrollTop; d.innerHTML=detailHtml(r); d.scrollTop=y;
     if(editId){ const i=d.querySelector('input[data-name]'); if(i){ i.focus(); i.select(); } }
