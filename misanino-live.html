@@ -28,10 +28,10 @@ header{position:sticky;top:0;z-index:5;background:rgba(11,13,16,.96);border-bott
 .sbest{font-size:11px;color:var(--mute);margin-top:6px}
 .sbest b{color:var(--purple);font-weight:600}
 ul{list-style:none;margin:0;padding:0}
-.row{display:grid;grid-template-columns:26px 36px 1fr auto 30px;column-gap:8px;align-items:center;padding:8px 6px 4px 10px;border-bottom:1px solid var(--line);position:relative}
-.row.pin{background:linear-gradient(90deg,rgba(255,214,10,.09),transparent 60%)}
+.row{background:var(--bg);display:grid;grid-template-columns:26px 36px 1fr auto 30px;column-gap:8px;align-items:center;padding:8px 6px 4px 10px;border-bottom:1px solid var(--line);position:relative}
+.row.pin{background:linear-gradient(90deg,rgba(255,214,10,.09),transparent 60%),var(--bg)}
 .row.flash{animation:fl 1.2s ease-out}
-@keyframes fl{from{background-color:rgba(255,255,255,.14)}to{background-color:transparent}}
+@keyframes fl{from{background-color:#2b3037}to{background-color:var(--bg)}}
 .pos{font-weight:700;font-size:16px;text-align:center}
 .no{background:#e8eaed;color:#000;font-weight:700;border-radius:5px;text-align:center;padding:3px 0;font-size:14px}
 .who{min-width:0}
@@ -170,11 +170,11 @@ function createHistory(cfg){
       else other.push(line.trim()); }
     laps.sort((a,b)=>a.n-b.n); pits.sort((a,b)=>a.no-b.no);
     // driver names live in the INF line: <driver id=team ...><driver id=.. name=".."/>...
-    const names={}; let current=null; const dec=x=>{ const d=document.createElement('textarea'); d.innerHTML=x; return d.value.trim(); };
+    const names={}; let current=null, team=''; const dec=x=>{ const d=document.createElement('textarea'); d.innerHTML=x; return d.value.trim(); };
     for(const l of other){ if(!/\.INF#/.test(l)) continue; let m; const re=/<driver\s+([^>]*?)\/?>/g;
-      while((m=re.exec(l))){ const id=/\bid="(\d+)"/.exec(m[1]), nm=/\bname="([^"]*)"/.exec(m[1]); if(!id||!nm||!nm[1]||id[1]===teamId) continue;
+      while((m=re.exec(l))){ const id=/\bid="(\d+)"/.exec(m[1]), nm=/\bname="([^"]*)"/.exec(m[1]); if(!id||!nm||!nm[1]) continue; if(id[1]===teamId){ team=dec(nm[1]); continue; }
         names['d'+id[1]]=dec(nm[1]).toLowerCase().replace(/(^|[\s'-])(\S)/g,(x,a,b)=>a+b.toUpperCase()); if(/\b(current|active|selected|driving|ontrack|on)="(1|true|yes)"/i.test(m[1])) current=id[1]; } }
-    return {laps,pits,names,other,current};
+    return {laps,pits,names,other,current,team};
 
   }
   async function post(request){ const res=await fetch('https://'+cfg.host+'/live-timing/commonv2/functions/request.php',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
@@ -212,18 +212,21 @@ function createStore({storageKey, onChange}){
       }
       if(!/^r\d+$/.test(rid)) continue;
       const o=old.get(rid);
-      const r={id:rid,cells:{},laps:[],pits:o?o.pits:[],names:o?o.names:{},lastCross:o?o.lastCross:0,inPit:false,flashAt:0,pos:parseInt(tr.getAttribute('data-pos'),10)||999};
+      const r={id:rid,cells:{},laps:[],pits:o?o.pits:[],names:o?o.names:{},team:o?o.team:'',seen:o?o.seen:new Map(),cur:o?o.cur:null,lastCross:o?o.lastCross:0,inPit:false,flashAt:0,pos:parseInt(tr.getAttribute('data-pos'),10)||999};
       tds.forEach((td,i)=>{ const el = td.hasAttribute('data-id') ? td : td.querySelector('[data-id]');
         const m = el && /^r\d+(c\d+)$/.exec(el.getAttribute('data-id')); const cid = m ? m[1] : 'c'+(i+1);
         r.cells[cid]={v:(el||td).textContent.trim(), c:(el||td).className||td.className||''}; });
-      r.inPit=((cell(r,'otr')||{}).c==='to');
+      r.inPit=((cell(r,'otr')||{}).c==='to'); { const v=cv(r,'dr'); if(v) r.seen.set(v,(r.seen.get(v)||0)+1); }
       rows.set(rid,r);
     }
     const k=meta.t1+'|'+meta.t2; if(k!==sessionKey){ sessionKey=k; loadHist(); meta.sessionBest=null; }
     for(const r of rows.values()){ r.key=keyOf(r); r.laps=hist[r.key]||(hist[r.key]=[]); }
     recomputeBest();
   }
-  function keyOf(r){ return cv(r,'no') || cv(r,'dr') || r.id; }
+  function keyOf(r){ return cv(r,'no') || r.id; }
+  // the name cell alternates between team and current driver: the team is what the server says, else the value seen most (first seen on ties)
+  function teamName(r){ if(r.team) return r.team; let best='',n=0; for(const [v,c] of r.seen) if(c>n){ best=v; n=c; } return best; }
+  function onTrack(r){ const v=cv(r,'dr'), t=teamName(r); return v && v!==t ? v : (r.onTrack||''); }
   function recomputeBest(){ let b=null; for(const r of rows.values()){ const p=ownBest(r); if(p!=null&&(b==null||p<b)) b=p; } meta.sessionBest=b; }
   function ownBest(r){ let b=parseTime(cv(r,'blp')); for(const l of r.laps) if(b==null||l.t<b) b=l.t; return b; }
 
@@ -233,6 +236,7 @@ function createStore({storageKey, onChange}){
     if(type==='llp' && val){ const t=parseTime(c.v); if(t!=null && t>0){ const now=Date.now(), prev=r.laps[r.laps.length-1];
       if(!(prev && prev.t===t && prev.at && now-prev.at < t*600)) pending.push({r,t,cls:c.c,at:now}); } }
     if(type==='otr') r.inPit = c.c==='to';
+    if(type==='dr' && c.v) r.seen.set(c.v,(r.seen.get(c.v)||0)+1);
   }
   function flushLaps(){
     for(const p of pending){ const r=p.r, blp=parseTime(cv(r,'blp')); let prevBest=null; for(const l of r.laps) if(prevBest==null||l.t<prevBest) prevBest=l.t;
@@ -261,10 +265,10 @@ function createStore({storageKey, onChange}){
     flushLaps(); onChange();
   }
   function setHistory(id,h){ // replace a team's laps with the server's full-race list, keep newer live laps
-    const r=rows.get(id); if(!r||!h.laps.length) return;
+    const r=rows.get(id); if(!r) return; if(h.team) r.team=h.team; Object.assign(r.names,h.names); if(!h.laps.length){ onChange(); return; }
     const maxN=h.laps[h.laps.length-1].n, live=r.laps.filter(l=>l.n>maxN), all=[...h.laps,...live]; let best=null;
     for(const l of all){ l.pb = best==null||l.t<best; if(l.pb) best=l.t; l.sb = l.pb && meta.sessionBest!=null && l.t<=meta.sessionBest+0.0005; }
-    r.laps.length=0; r.laps.push(...all); r.pits=h.pits; Object.assign(r.names,h.names); r.cur=h.current||null;
+    r.laps.length=0; r.laps.push(...all); r.pits=h.pits; Object.assign(r.names,h.names); r.cur=h.current||null; if(h.team) r.team=h.team;
     if(meta.sessionBest==null||best<meta.sessionBest) meta.sessionBest=best;
     onChange();
   }
@@ -273,8 +277,10 @@ function createStore({storageKey, onChange}){
     const s=lapStats(ts.slice(-15)), c5=s.clean.slice(-5);
     return {best,last,med:s.med,pace:c5.length?c5.reduce((a,b)=>a+b,0)/c5.length:null,sd:s.sd};
   }
-  function view(r){ return {id:r.id,key:r.key,pos:r.pos,rank:cv(r,'rk'),no:cv(r,'no'),name:cv(r,'dr')||('Kart '+cv(r,'no')),gap:cv(r,'gap'),int:cv(r,'int'),
-    lapsTotal:cv(r,'tlp'),pitCount:cv(r,'pit'),lastText:cv(r,'llp'),lastCls:(cell(r,'llp')||{}).c||'',inPit:r.inPit,laps:r.laps,pits:r.pits,names:r.names,cur:r.cur,
+  function view(r){ const ot=onTrack(r); if(ot) r.onTrack=ot; let cur=r.cur;
+    if(!cur&&ot){ const k=Object.keys(r.names).find(k=>r.names[k].toLowerCase()===ot.toLowerCase()); if(k) cur=k.slice(1); }
+    return {id:r.id,key:r.key,pos:r.pos,rank:cv(r,'rk'),no:cv(r,'no'),name:teamName(r)||('Kart '+cv(r,'no')),onTrack:ot,gap:cv(r,'gap'),int:cv(r,'int'),
+    lapsTotal:cv(r,'tlp'),pitCount:cv(r,'pit'),lastText:cv(r,'llp'),lastCls:(cell(r,'llp')||{}).c||'',inPit:r.inPit,laps:r.laps,pits:r.pits,names:r.names,cur,
     lastCross:r.lastCross,flashAt:r.flashAt,pinned:pins.has(r.key),...stats(r)}; }
   return { meta, apply, setHistory,
     rows(){ return [...rows.values()].sort((a,b)=>a.pos-b.pos).map(view); },
@@ -290,7 +296,7 @@ function breakdown(r){
   stints.push({i:r.pits.length+1,from,to:Infinity,drv:r.cur?'d'+r.cur:'cur',pit:null,laps:[]});
   const pitLaps=new Set(r.pits.map(p=>p.lap+1)); // the lap that contains the stop
   const drivers=new Map(); let num=0;
-  for(const s of stints){ if(!drivers.has(s.drv)) drivers.set(s.drv,{id:s.drv,stints:[],laps:[],label:s.drv==='cur'?'On track now':s.drv==='d0'?'Starter':'Driver '+(++num)}); drivers.get(s.drv).stints.push(s); }
+  for(const s of stints){ if(!drivers.has(s.drv)) drivers.set(s.drv,{id:s.drv,stints:[],laps:[],label:s.drv==='cur'?(r.onTrack||'On track now'):s.drv==='d0'?'Starter':'Driver '+(++num)}); drivers.get(s.drv).stints.push(s); }
   for(const l of r.laps){ const s=stints.find(s=>l.n>=s.from&&l.n<=s.to)||stints[stints.length-1]; s.laps.push(l); drivers.get(s.drv).laps.push(l); }
   const st=laps=>({n:laps.length,...lapStats(laps.filter(l=>!pitLaps.has(l.n)&&l.n>1).map(l=>l.t))});
   for(const d of drivers.values()) d.st=st(d.laps); for(const s of stints) s.st=st(s.laps);
@@ -325,6 +331,7 @@ function startDemo(feed){
   let custom={}; try{ custom=JSON.parse(localStorage.getItem('apexlive:names')||'{}'); }catch(e){}
   let sort='pos', dirty=true, openId=null, filterDrv=null, editId=null, detailSig='', demoTimer=null, raw=[], autoPinned=false;
   const hist={}; // rowId -> {at,busy,err,logged}
+  let bgBusy=false;
   const store=createStore({storageKey:'apexlive:'+cfg.port, onChange:()=>{dirty=true;}});
   const history=createHistory(cfg);
   const feed=createFeed({ onBatch:b=>store.apply(b), onRaw:l=>{ const cap=l.startsWith('grid')?9000:240; raw.push(l.length>cap?l.slice(0,cap)+'…':l); if(raw.length>400) raw.splice(0,100); },
@@ -345,7 +352,8 @@ function startDemo(feed){
     const rows=store.rows(); if(!rows.length||demoTimer) return;
     if(!autoPinned && cfg.team){ autoPinned=true; let done=''; try{ done=localStorage.getItem('apexlive:autopin')||''; }catch(e){}
       if(done!==cfg.team){ const r=rows.find(x=>x.name.toLowerCase().includes(cfg.team.toLowerCase())); if(r){ if(!r.pinned) store.togglePin(r.key); try{ localStorage.setItem('apexlive:autopin',cfg.team); }catch(e){} } else autoPinned=false; } }
-    const now=Date.now(); for(const r of rows) if(r.pinned||r.id===openId){ const h=hist[r.id]; if(!h||!h.at||now-h.at>40000) loadHistory(r.id); }
+    const now=Date.now(); if(!bgBusy){ const todo=rows.filter(r=>!hist[r.id]); if(todo.length){ bgBusy=true; (async()=>{ for(const r of todo){ await loadHistory(r.id); await new Promise(f=>setTimeout(f,400)); } bgBusy=false; })(); } }
+    for(const r of rows) if(r.pinned||r.id===openId){ const h=hist[r.id]; if(!h||!h.at||now-h.at>40000) loadHistory(r.id); }
   }, 3000);
 
   const lapCls = (l,med) => l.sb?'sb':l.pb?'pb':(med&&l.t>med*1.03?'slow':'');
@@ -353,17 +361,32 @@ function startDemo(feed){
     const lastLap=r.laps[r.laps.length-1];
     const cls = lastLap ? lapCls(lastLap,r.med) : /^tb/.test(r.lastCls)?'sb':/^ti/.test(r.lastCls)?'pb':'';
     const d = r.last!=null&&r.best!=null ? r.last-r.best : null;
-    const meta=[]; if(r.inPit) meta.push('<span class="pit">PIT</span>'); if(r.gap) meta.push(esc(r.gap)); if(r.lapsTotal) meta.push(esc(r.lapsTotal)+' laps'); if(r.pitCount&&r.pitCount!=='0') meta.push(esc(r.pitCount)+' pit');
+    const meta=[]; if(r.inPit) meta.push('<span class="pit">PIT</span>'); if(r.gap) meta.push(esc(r.gap)); if(r.onTrack) meta.push(esc(r.onTrack)); if(r.lapsTotal) meta.push(esc(r.lapsTotal)+' laps'); if(r.pitCount&&r.pitCount!=='0') meta.push(esc(r.pitCount)+' pit');
     const recent=r.laps.slice(-14), ref=r.med?r.med*1.06:null;
     const bars=recent.map(l=>{ const h = ref&&r.best!=null&&ref>r.best ? Math.max(0.12,Math.min(1,(ref-l.t)/(ref-r.best))) : 0.5; return `<i class="${lapCls(l,r.med)}" style="height:${Math.round(h*100)}%"></i>`; }).join('');
     const prog = r.lastCross&&r.med&&!r.inPit ? Math.min(100,(now-r.lastCross)/(r.med*10)) : 0;
     const sub = sort==='pace' ? 'pace '+fmt(r.pace) : 'best '+fmt(r.best)+(d!=null&&d>0.0005?' · '+fmtD(d):'');
-    return `<li class="row${r.pinned?' pin':''}${now-r.flashAt<1200?' flash':''}" data-id="${r.id}">
+    return {cls:`row${r.pinned?' pin':''}${now-r.flashAt<1200?' flash':''}`, prog, html:`
       <div class="pos num">${esc(r.rank||r.pos)}</div><div class="no num">${esc(r.no)}</div>
       <div class="who"><div class="name">${esc(r.name)}</div><div class="meta num">${meta.join(' · ')||'&nbsp;'}</div></div>
       <div class="times num"><div class="last ${cls}">${r.last!=null?fmt(r.last):esc(r.lastText)||'–'}</div><div class="sub">${sub}</div></div>
       <button class="star" data-pin="${esc(r.key)}" aria-label="Follow">${r.pinned?'★':'☆'}</button>
-      <div class="form">${bars}</div><div class="prog"><i style="width:${prog.toFixed(1)}%"></i></div></li>`;
+      <div class="form">${bars}</div><div class="prog"><i></i></div>`};
+  }
+  const els=new Map(); let lastOrder='';
+  function renderList(rows,now){
+    const ul=$('list'), order=rows.map(r=>r.id).join(','), moved=order!==lastOrder, first=new Map(), seen=new Set();
+    if(moved) for(const [id,el] of els) first.set(id,el.getBoundingClientRect().top);
+    for(const r of rows){ let el=els.get(r.id); if(!el){ el=document.createElement('li'); el.dataset.id=r.id; els.set(r.id,el); }
+      const p=rowHtml(r,now); if(el._h!==p.html){ el.innerHTML=p.html; el._h=p.html; } if(el.className!==p.cls) el.className=p.cls;
+      el.querySelector('.prog i').style.width=p.prog.toFixed(1)+'%'; seen.add(r.id); }
+    for(const [id,el] of els) if(!seen.has(id)){ el.remove(); els.delete(id); }
+    if(!moved) return; lastOrder=order;
+    for(const r of rows) ul.appendChild(els.get(r.id));
+    const anim=[]; for(const [id,top] of first){ const el=els.get(id); if(!el) continue; const d=top-el.getBoundingClientRect().top;
+      if(Math.abs(d)>1){ el.style.transition='none'; el.style.transform='translateY('+d+'px)'; el.style.zIndex=d>0?3:1; anim.push(el); } }
+    if(!anim.length) return; void ul.offsetHeight;
+    for(const el of anim){ el.style.transition='transform .7s cubic-bezier(.2,.8,.2,1)'; el.style.transform=''; }
   }
   function sorted(){
     const rows=store.rows(); const by=k=>(a,b)=>(a[k]??1e9)-(b[k]??1e9);
@@ -428,7 +451,7 @@ function startDemo(feed){
     const c=m.clock; $('clock').textContent = !c ? '' : c.text!=null ? c.text : fmtMs(Math.max(0,c.end?c.end-now:now-c.start));
     $('sbest').innerHTML = m.sessionBest!=null ? `Session best <b class="num">${fmt(m.sessionBest)}</b> · <span style="color:var(--green)">green</span> = personal best · <span style="color:var(--amber)">amber</span> = slow lap` : '';
     $('empty').style.display = rows.length?'none':'';
-    if(!openId) $('list').innerHTML = rows.map(r=>rowHtml(r,now)).join('');
+    if(!openId) renderList(rows,now);
     renderDetail(false);
     if($('settings').classList.contains('on')) $('raw').textContent=raw.slice(-80).map(l=>l.slice(0,400)).join('\n');
   }
