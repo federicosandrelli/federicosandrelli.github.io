@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Misanino Kart – Live laps</title>
+<style>
+:root{--bg:#0b0d10;--panel:#14181d;--line:#232a32;--text:#e8eaed;--mute:#8b95a1;--purple:#c77dff;--green:#3ddc84;--amber:#ffb020;--red:#ff5a5f;--pin:#ffd60a;--blue:#5aa9ff}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.3 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+.num{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+header{position:sticky;top:0;z-index:5;background:rgba(11,13,16,.96);border-bottom:1px solid var(--line);padding:8px 12px 6px}
+.top{display:flex;align-items:center;gap:8px}
+.titles{flex:1;min-width:0}
+.t1{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t2{color:var(--mute);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.clock{font-size:17px;font-weight:700}
+.flag{width:14px;height:14px;border-radius:3px;background:#444;flex:none}
+.flag.g{background:var(--green)}.flag.y{background:var(--amber)}.flag.r{background:var(--red)}
+.flag.f{background:repeating-conic-gradient(#fff 0 25%,#000 0 50%) 0 0/7px 7px}
+.status{font-size:11px;padding:4px 8px;border-radius:99px;border:1px solid var(--line);color:var(--mute);white-space:nowrap}
+.status.open{color:var(--green);border-color:#1f5c3a}.status.demo{color:var(--amber);border-color:#6b4c12}
+.bar{display:flex;gap:6px;margin-top:8px;align-items:center}
+.seg{display:flex;flex:1;background:var(--panel);border-radius:8px;padding:2px}
+.seg button{flex:1;padding:6px 0;border-radius:6px;font-size:12px;color:var(--mute)}
+.seg button.on{background:#2a323c;color:var(--text);font-weight:600}
+.sbest{font-size:11px;color:var(--mute);margin-top:6px}
+.sbest b{color:var(--purple);font-weight:600}
+ul{list-style:none;margin:0;padding:0}
+.row{display:grid;grid-template-columns:26px 36px 1fr auto 30px;column-gap:8px;align-items:center;padding:8px 6px 4px 10px;border-bottom:1px solid var(--line);position:relative}
+.row.pin{background:linear-gradient(90deg,rgba(255,214,10,.09),transparent 60%)}
+.row.flash{animation:fl 1.2s ease-out}
+@keyframes fl{from{background-color:rgba(255,255,255,.14)}to{background-color:transparent}}
+.pos{font-weight:700;font-size:16px;text-align:center}
+.no{background:#e8eaed;color:#000;font-weight:700;border-radius:5px;text-align:center;padding:3px 0;font-size:14px}
+.who{min-width:0}
+.name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{font-size:11.5px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pit{color:#000;background:var(--amber);border-radius:3px;padding:0 4px;font-weight:700;font-size:10px}
+.times{text-align:right}
+.last{font-size:18px;font-weight:700}
+.sb{color:var(--purple)}.pb{color:var(--green)}.slow{color:var(--amber)}
+.sub{font-size:11.5px;color:var(--mute)}
+.star{font-size:20px;color:#3a434e;height:36px}.pin .star{color:var(--pin)}
+.form{grid-column:2/5;display:flex;align-items:flex-end;gap:2px;height:16px;margin-top:4px}
+.form i{flex:1;max-width:14px;background:#56616d;border-radius:1px;min-height:2px}
+.form i.sb{background:var(--purple)}.form i.pb{background:var(--green)}.form i.slow{background:var(--amber)}
+.prog{grid-column:1/-1;height:2px;margin-top:4px}
+.prog i{display:block;height:100%;background:#3d6ea8;width:0}
+.empty{padding:40px 20px;text-align:center;color:var(--mute)}
+.btn{display:inline-block;padding:9px 14px;border-radius:8px;background:#2a323c;margin:6px 4px;font-weight:600}
+.sheet{position:fixed;inset:0;background:var(--bg);z-index:10;overflow:auto;display:none;padding-bottom:30px}
+.sheet.on{display:block}
+.shead{position:sticky;top:0;z-index:2;background:rgba(11,13,16,.97);display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.back{font-size:22px;padding:0 6px}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:10px 12px}
+.tile{background:var(--panel);border-radius:8px;padding:8px 4px;text-align:center}
+.tile small{display:block;color:var(--mute);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em}
+.tile b{font-size:15px}
+.chart{padding:0 12px}.chart svg{width:100%;height:auto;background:var(--panel);border-radius:8px;display:block}
+.note{color:var(--mute);font-size:11.5px;padding:6px 12px}
+h3{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--mute);margin:14px 12px 2px;font-weight:600}
+table{width:100%;border-collapse:collapse;margin-top:4px}
+th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line);font-size:13.5px}
+th{color:var(--mute);font-weight:500;font-size:11px;text-transform:uppercase}
+th:first-child,td:first-child{text-align:left}
+.laps td:first-child{color:var(--mute)}
+.drv tr.on td{background:#1d2733}.drv tr.on td:first-child{box-shadow:inset 3px 0 0 var(--blue)}
+.drv th,.drv td{padding:6px 5px;font-size:12.5px}.drv td:first-child{font-family:system-ui,sans-serif;max-width:30vw;padding-left:10px}
+.drv .dn{font-weight:600;display:block;line-height:1.2}
+.drv small{color:var(--mute);font-size:11px}
+.drv input{width:100%;padding:5px;border-radius:6px;border:1px solid var(--blue);background:var(--panel);color:var(--text);font:inherit}
+.ren{color:var(--mute);padding:0 4px;font-size:13px}
+tr.sh td{background:var(--panel);color:var(--text);font-size:12px;text-align:left;font-family:system-ui,sans-serif}
+tr.sh b{color:var(--blue)}
+.set{padding:12px}.set label{display:block;color:var(--mute);font-size:12px;margin-top:10px}
+.set input{width:100%;padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit}
+pre{background:var(--panel);border-radius:8px;padding:8px;font-size:10.5px;max-height:40vh;overflow:auto;white-space:pre-wrap;word-break:break-all}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <span class="flag" id="flag"></span>
+    <div class="titles"><div class="t1" id="t1">Misanino Kart</div><div class="t2" id="t2"></div></div>
+    <span class="clock num" id="clock"></span>
+    <button class="status" id="status">…</button>
+  </div>
+  <div class="bar">
+    <div class="seg" id="sort">
+      <button data-s="pos" class="on">Position</button><button data-s="best">Best lap</button><button data-s="last">Last lap</button><button data-s="pace">Pace (5)</button>
+    </div>
+  </div>
+  <div class="sbest" id="sbest"></div>
+</header>
+<ul id="list"></ul>
+<div class="empty" id="empty">Waiting for timing data…<br><br>
+  <button class="btn" id="demoBtn">Try demo data</button><button class="btn" id="setBtn">Connection</button></div>
+
+<div class="sheet" id="detail"></div>
+<div class="sheet" id="settings">
+  <div class="shead"><button class="back" data-close>‹</button><b>Connection</b></div>
+  <div class="set">
+    <label>My team (part of the name) – starred automatically</label><input id="team">
+    <label>Host</label><input id="host">
+    <label>Port (configPort from the track's config.js)</label><input id="port" inputmode="numeric">
+    <div style="margin-top:12px"><button class="btn" id="connBtn">Save &amp; connect</button><button class="btn" id="demoBtn2">Demo</button><button class="btn" id="clearBtn">Clear saved laps</button></div>
+    <label>Raw feed (for debugging) <button class="btn" id="copyBtn" style="padding:3px 8px;margin:0 0 0 6px">Copy</button></label>
+    <textarea id="export" readonly style="display:none;width:100%;height:30vh;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;font-size:11px;margin-bottom:8px"></textarea>
+    <pre id="raw"></pre>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ---------- util ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function parseTime(s){ // "1:02.345" | "52.345" -> seconds, else null
+  if(!s) return null; const m = String(s).trim().match(/^(?:(\d+):)?(?:(\d+):)?(\d+(?:[.,]\d+)?)$/); if(!m) return null;
+  const sec = parseFloat(m[3].replace(',','.')); if(isNaN(sec)) return null;
+  if(m[2]!==undefined) return (+m[1])*3600 + (+m[2])*60 + sec;
+  return (m[1]!==undefined ? (+m[1])*60 : 0) + sec;
+}
+function fmt(t){ if(t==null) return '–'; const m = Math.floor(t/60), s = t - m*60; return m ? m+':'+(s<10?'0':'')+s.toFixed(3) : s.toFixed(3); }
+function fmtD(d){ return d==null ? '' : (d>=0?'+':'−')+Math.abs(d).toFixed(3); }
+function fmtMs(ms){ let s=Math.round(ms/1000); const h=Math.floor(s/3600); s-=h*3600; const m=Math.floor(s/60); return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(s-m*60).padStart(2,'0'); }
+function median(a){ if(!a.length) return null; const b=[...a].sort((x,y)=>x-y), n=b.length>>1; return b.length%2 ? b[n] : (b[n-1]+b[n])/2; }
+function lapStats(ts){ // clean = within 7% of the median (drops pit/traffic laps)
+  const med=median(ts), clean=med==null?[]:ts.filter(t=>t<=med*1.07), avg=clean.length?clean.reduce((a,b)=>a+b,0)/clean.length:null;
+  const sd=clean.length>=3?Math.sqrt(clean.reduce((a,b)=>a+(b-avg)**2,0)/clean.length):null;
+  return {med,avg,sd,best:ts.length?Math.min(...ts):null,clean};
+}
+
+/* ---------- ApexFeed: socket + line protocol. API: connect(host,port), ingest(text), close() ---------- */
+function createFeed({onBatch, onStatus, onRaw}){
+  let ws=null, urls=[], idx=0, retry=0, timer=null, stopped=true;
+  function parse(text){
+    const out=[]; for(const line of text.split('\n')){ if(!line) continue; onRaw(line);
+      const i=line.indexOf('|'); if(i<0) continue; const j=line.indexOf('|',i+1);
+      out.push(j<0 ? {id:line.slice(0,i),cmd:line.slice(i+1)} : {id:line.slice(0,i),cmd:line.slice(i+1,j),val:line.slice(j+1)}); }
+    return out;
+  }
+  function open(){
+    if(stopped) return; const url=urls[idx%urls.length]; onStatus('connecting',url); let got=false, me;
+    try{ me=ws=new WebSocket(url); }catch(e){ idx++; return again(); }
+    me.onopen=()=>{ if(me===ws) onStatus('open',url); };
+    me.onmessage=e=>{ if(me!==ws||typeof e.data!=='string') return; got=true; retry=0; onBatch(parse(e.data)); };
+    me.onclose=()=>{ if(me!==ws||stopped) return; if(!got) idx++; again(); };
+  }
+  function again(){ onStatus('retry'); clearTimeout(timer); timer=setTimeout(open, Math.min(1000*2**retry++,15000)); }
+  function close(){ stopped=true; clearTimeout(timer); if(ws){ const w=ws; ws=null; try{w.close()}catch(e){} } }
+  return {
+    connect(host,port){ close(); stopped=false; idx=0; retry=0;
+      urls=[`wss://${host}:${port+3}/`]; if(location.protocol!=='https:') urls.push(`ws://${host}:${port+2}/`); open(); },
+    ingest(text){ onBatch(parse(text)); },
+    close
+  };
+}
+
+/* ---------- ApexHistory: whole-race laps + pit stops for one team. API: fetch(rowId) -> {laps,pits,names,other} ---------- */
+function createHistory(cfg){
+  function parse(text,teamId){
+    const laps=[], pits=[], other=[];
+    for(const line of text.split('\n')){ const m=/^D\d+\.([A-Za-z]+)(\d*)#(.*)$/.exec(line.trim()); if(!m){ if(line.trim()) other.push(line.trim()); continue; }
+      const f=m[3].split('|');
+      if(m[1]==='L'){ const ms=parseInt(f[3],10); if(ms>0) laps.push({n:parseInt(m[2],10),t:ms/1000,s:f.slice(0,3).map(x=>x?parseInt(x,10)/1000:null)}); }
+      else if(m[1]==='P'){ pits.push({no:+f[0],lap:+f[1],inMs:+f[2],outMs:+f[3],pitMs:+f[4],stintMs:+f[5],laps:+f[6],driverId:f[7]||'0',totalMs:+f[8]||0}); }
+      else other.push(line.trim()); }
+    laps.sort((a,b)=>a.n-b.n); pits.sort((a,b)=>a.no-b.no);
+    // driver names live in the INF line: <driver id=team ...><driver id=.. name=".."/>...
+    const names={}; let current=null; const dec=x=>{ const d=document.createElement('textarea'); d.innerHTML=x; return d.value.trim(); };
+    for(const l of other){ if(!/\.INF#/.test(l)) continue; let m; const re=/<driver\s+([^>]*?)\/?>/g;
+      while((m=re.exec(l))){ const id=/\bid="(\d+)"/.exec(m[1]), nm=/\bname="([^"]*)"/.exec(m[1]); if(!id||!nm||!nm[1]||id[1]===teamId) continue;
+        names['d'+id[1]]=dec(nm[1]).toLowerCase().replace(/(^|[\s'-])(\S)/g,(x,a,b)=>a+b.toUpperCase()); if(/\b(current|active|selected|driving|ontrack|on)="(1|true|yes)"/i.test(m[1])) current=id[1]; } }
+    return {laps,pits,names,other,current};
+
+  }
+  async function post(request){ const res=await fetch('https://'+cfg.host+'/live-timing/commonv2/functions/request.php',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'port='+cfg.port+'&request='+encodeURIComponent(request)}); return res.status+' '+(await res.text()); }
+  return { post, async fetch(rowId){
+    const res=await fetch('https://'+cfg.host+'/live-timing/commonv2/functions/request.php',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'port='+cfg.port+'&request='+encodeURIComponent('D#-999#D'+rowId.slice(1))});
+    if(!res.ok) throw new Error('HTTP '+res.status); return parse(await res.text(),rowId.slice(1)); } };
+}
+
+/* ---------- RaceStore: protocol messages -> race state. API: apply, rows, row, setHistory, togglePin, clear, meta ---------- */
+function createStore({storageKey, onChange}){
+  const TYPE_BY_TEXT=[[/^s(ect\w*)?\.? ?1/i,'s1'],[/^s(ect\w*)?\.? ?2/i,'s2'],[/^s(ect\w*)?\.? ?3/i,'s3'],[/mig|best|meill/i,'blp'],[/ult|last|dern|^giro$|^lap$|^tour$/i,'llp'],[/gap|dist|cart/i,'gap'],[/^int/i,'int'],[/giri|laps|tours/i,'tlp'],[/pilot|driver|team|nom|name|squadr/i,'dr'],[/kart|n°|^no|num/i,'no'],[/pos|cla|^rk/i,'rk'],[/pit|box/i,'pit']];
+  const meta={t1:'',t2:'',flag:'',clock:null,sessionBest:null};
+  let cols={}, typeCol={}, rows=new Map(), hist={}, pins=new Set(), sessionKey='', pending=[];
+  try{ pins=new Set(JSON.parse(localStorage.getItem(storageKey+':pins')||'[]')); }catch(e){}
+  const strip = h => { if(h.indexOf('<')<0&&h.indexOf('&')<0) return h.trim(); const d=document.createElement('div'); d.innerHTML=h; return d.textContent.trim(); };
+  const cell = (r,type) => r.cells[typeCol[type]] || null;
+  const cv = (r,type) => { const c=cell(r,type); return c ? c.v : ''; };
+
+  function loadHist(){ hist={}; try{ const s=JSON.parse(localStorage.getItem(storageKey+':laps')||'null'); if(s&&s.k===sessionKey) hist=s.h; }catch(e){} }
+  function save(){ try{ localStorage.setItem(storageKey+':laps', JSON.stringify({k:sessionKey,h:hist})); localStorage.setItem(storageKey+':pins', JSON.stringify([...pins])); }catch(e){} }
+  setInterval(save, 8000);
+
+  function setGrid(html){
+    const doc=new DOMParser().parseFromString('<table>'+html+'</table>','text/html'), old=rows;
+    cols={}; typeCol={}; rows=new Map();
+    for(const tr of doc.querySelectorAll('tr')){
+      const rid=tr.getAttribute('data-id')||''; const tds=[...tr.children];
+      if(tr.classList.contains('head') || rid==='r0'){
+        tds.forEach((td,i)=>{ const id=td.getAttribute('data-id')||('c'+(i+1)); let type=td.getAttribute('data-type')||'';
+          const label=td.textContent.trim(); if(!type) for(const [re,t] of TYPE_BY_TEXT) if(re.test(label)){ type=t; break; }
+          cols[id]={type,label}; if(type && !(type in typeCol)) typeCol[type]=id; });
+        continue;
+      }
+      if(!/^r\d+$/.test(rid)) continue;
+      const o=old.get(rid);
+      const r={id:rid,cells:{},laps:[],pits:o?o.pits:[],names:o?o.names:{},lastCross:o?o.lastCross:0,inPit:false,flashAt:0,pos:parseInt(tr.getAttribute('data-pos'),10)||999};
+      tds.forEach((td,i)=>{ const el = td.hasAttribute('data-id') ? td : td.querySelector('[data-id]');
+        const m = el && /^r\d+(c\d+)$/.exec(el.getAttribute('data-id')); const cid = m ? m[1] : 'c'+(i+1);
+        r.cells[cid]={v:(el||td).textContent.trim(), c:(el||td).className||td.className||''}; });
+      r.inPit=((cell(r,'otr')||{}).c==='to');
+      rows.set(rid,r);
+    }
+    const k=meta.t1+'|'+meta.t2; if(k!==sessionKey){ sessionKey=k; loadHist(); meta.sessionBest=null; }
+    for(const r of rows.values()){ r.key=keyOf(r); r.laps=hist[r.key]||(hist[r.key]=[]); }
+    recomputeBest();
+  }
+  function keyOf(r){ return cv(r,'no') || cv(r,'dr') || r.id; }
+  function recomputeBest(){ let b=null; for(const r of rows.values()){ const p=ownBest(r); if(p!=null&&(b==null||p<b)) b=p; } meta.sessionBest=b; }
+  function ownBest(r){ let b=parseTime(cv(r,'blp')); for(const l of r.laps) if(b==null||l.t<b) b=l.t; return b; }
+
+  function onCell(r,cid,cls,val){
+    const c=r.cells[cid]||(r.cells[cid]={v:'',c:''}); if(cls) c.c=cls; if(val!==undefined) c.v=strip(val);
+    const type=(cols[cid]||{}).type;
+    if(type==='llp' && val){ const t=parseTime(c.v); if(t!=null && t>0){ const now=Date.now(), prev=r.laps[r.laps.length-1];
+      if(!(prev && prev.t===t && prev.at && now-prev.at < t*600)) pending.push({r,t,cls:c.c,at:now}); } }
+    if(type==='otr') r.inPit = c.c==='to';
+  }
+  function flushLaps(){
+    for(const p of pending){ const r=p.r, blp=parseTime(cv(r,'blp')); let prevBest=null; for(const l of r.laps) if(prevBest==null||l.t<prevBest) prevBest=l.t;
+      const n=parseInt(cv(r,'tlp'),10), last=r.laps[r.laps.length-1]; const lap={n:isNaN(n)?(last?last.n+1:1):n, t:p.t, at:p.at};
+      r.lastCross=p.at; r.flashAt=p.at;
+      if(last && lap.n<=last.n) continue; // already known (e.g. from the race history)
+      if('s1' in typeCol){ const s=['s1','s2','s3'].map(k=>parseTime(cv(r,k))); if(s.some(x=>x!=null)) lap.s=s; }
+      lap.pb = (prevBest==null||p.t<=prevBest) && (blp==null||p.t<=blp+0.0005);
+      lap.sb = lap.pb && (/^tb/.test(p.cls) || meta.sessionBest==null || p.t<=meta.sessionBest+0.0005);
+      r.laps.push(lap);
+      if(meta.sessionBest==null||p.t<meta.sessionBest) meta.sessionBest=p.t; }
+    pending=[];
+  }
+  function apply(batch){
+    for(const {id,cmd,val} of batch){
+      let m;
+      if(id==='grid') setGrid(val||'');
+      else if(id==='title1') meta.t1=strip(val||''); else if(id==='title2') meta.t2=strip(val||'');
+      else if(id==='light') meta.flag=(cmd||'').replace(/^l/,'').charAt(0);
+      else if(id==='dyn1'){ const ms=parseInt(val,10);
+        meta.clock = cmd==='countdown'&&!isNaN(ms) ? {end:Date.now()+ms} : cmd==='count'&&!isNaN(ms) ? {start:Date.now()-ms} : {text:strip(val||'')}; }
+      else if((m=/^(r\d+)(c\d+)$/.exec(id))){ const r=rows.get(m[1]); if(r) onCell(r,m[2],cmd,val); }
+      else if(/^r\d+$/.test(id)){ const r=rows.get(id); if(!r) continue;
+        if(cmd==='#'){ const p=parseInt(val,10); if(p>0) r.pos=p; } }
+    }
+    flushLaps(); onChange();
+  }
+  function setHistory(id,h){ // replace a team's laps with the server's full-race list, keep newer live laps
+    const r=rows.get(id); if(!r||!h.laps.length) return;
+    const maxN=h.laps[h.laps.length-1].n, live=r.laps.filter(l=>l.n>maxN), all=[...h.laps,...live]; let best=null;
+    for(const l of all){ l.pb = best==null||l.t<best; if(l.pb) best=l.t; l.sb = l.pb && meta.sessionBest!=null && l.t<=meta.sessionBest+0.0005; }
+    r.laps.length=0; r.laps.push(...all); r.pits=h.pits; Object.assign(r.names,h.names); r.cur=h.current||null;
+    if(meta.sessionBest==null||best<meta.sessionBest) meta.sessionBest=best;
+    onChange();
+  }
+  function stats(r){
+    const ts=r.laps.map(l=>l.t), best=ownBest(r), last=ts.length?ts[ts.length-1]:parseTime(cv(r,'llp'));
+    const s=lapStats(ts.slice(-15)), c5=s.clean.slice(-5);
+    return {best,last,med:s.med,pace:c5.length?c5.reduce((a,b)=>a+b,0)/c5.length:null,sd:s.sd};
+  }
+  function view(r){ return {id:r.id,key:r.key,pos:r.pos,rank:cv(r,'rk'),no:cv(r,'no'),name:cv(r,'dr')||('Kart '+cv(r,'no')),gap:cv(r,'gap'),int:cv(r,'int'),
+    lapsTotal:cv(r,'tlp'),pitCount:cv(r,'pit'),lastText:cv(r,'llp'),lastCls:(cell(r,'llp')||{}).c||'',inPit:r.inPit,laps:r.laps,pits:r.pits,names:r.names,cur:r.cur,
+    lastCross:r.lastCross,flashAt:r.flashAt,pinned:pins.has(r.key),...stats(r)}; }
+  return { meta, apply, setHistory,
+    rows(){ return [...rows.values()].sort((a,b)=>a.pos-b.pos).map(view); },
+    row(id){ const r=rows.get(id); return r?view(r):null; },
+    togglePin(key){ pins.has(key)?pins.delete(key):pins.add(key); save(); onChange(); },
+    clear(){ hist={}; for(const r of rows.values()){ r.laps=hist[r.key]=[]; r.pits=[]; } recomputeBest(); save(); onChange(); } };
+}
+
+/* ---------- Stints: split a team's laps into stints and drivers. API: breakdown(row) ---------- */
+function breakdown(r){
+  const stints=[]; let from=1;
+  r.pits.forEach((p,i)=>{ stints.push({i:i+1,from,to:p.lap,drv:'d'+p.driverId,pit:p,laps:[]}); from=p.lap+1; });
+  stints.push({i:r.pits.length+1,from,to:Infinity,drv:r.cur?'d'+r.cur:'cur',pit:null,laps:[]});
+  const pitLaps=new Set(r.pits.map(p=>p.lap+1)); // the lap that contains the stop
+  const drivers=new Map(); let num=0;
+  for(const s of stints){ if(!drivers.has(s.drv)) drivers.set(s.drv,{id:s.drv,stints:[],laps:[],label:s.drv==='cur'?'On track now':s.drv==='d0'?'Starter':'Driver '+(++num)}); drivers.get(s.drv).stints.push(s); }
+  for(const l of r.laps){ const s=stints.find(s=>l.n>=s.from&&l.n<=s.to)||stints[stints.length-1]; s.laps.push(l); drivers.get(s.drv).laps.push(l); }
+  const st=laps=>({n:laps.length,...lapStats(laps.filter(l=>!pitLaps.has(l.n)&&l.n>1).map(l=>l.t))});
+  for(const d of drivers.values()) d.st=st(d.laps); for(const s of stints) s.st=st(s.laps);
+  return {stints,drivers:[...drivers.values()],pitLaps};
+}
+
+/* ---------- Demo: emits the same wire format so the whole pipeline is exercised ---------- */
+function startDemo(feed){
+  const names=['ROSSI M.','BIANCHI L.','FERRARI A.','CONTI G.','RICCI D.','MARINO S.','GALLO P.','GRECO F.'];
+  const head='<tr data-id="r0" class="head"><td data-id="c1" data-type="sta"></td><td data-id="c2" data-type="rk">Pos</td><td data-id="c3" data-type="no">Kart</td><td data-id="c4" data-type="dr">Pilota</td><td data-id="c5" data-type="llp">Ultimo</td><td data-id="c6" data-type="blp">Migliore</td><td data-id="c7" data-type="gap">Gap</td><td data-id="c8" data-type="tlp">Giri</td></tr>';
+  const k=names.map((n,i)=>({id:'r'+(i+1),no:String(3+i*7),name:n,base:8+i*0.12,laps:0,total:0,best:null,next:Date.now()+2000+i*900}));
+  feed.ingest('init|r|\ntitle1||DEMO – Misanino\ntitle2||Gara simulata\nlight|lg|\ndyn1|countdown|900000\ngrid||<tbody>'+head+
+    k.map((d,i)=>`<tr data-id="${d.id}" data-pos="${i+1}"><td data-id="${d.id}c1" class="sr"></td><td data-id="${d.id}c2" class="rk">${i+1}</td><td class="no"><div data-id="${d.id}c3" class="no1">${d.no}</div></td><td data-id="${d.id}c4" class="dr">${d.name}</td><td data-id="${d.id}c5" class="tn"></td><td data-id="${d.id}c6" class="tn"></td><td data-id="${d.id}c7" class="in"></td><td data-id="${d.id}c8" class="in">0</td></tr>`).join('')+'</tbody>');
+  let sbest=null;
+  return setInterval(()=>{ const now=Date.now(), out=[];
+    for(const d of k) if(now>=d.next){ const t=+(d.base+Math.random()*0.5+(Math.random()<0.08?2.5:0)).toFixed(3);
+      d.laps++; d.total+=t; d.next=now+t*1000; let cls='tn';
+      if(d.best==null||t<d.best){ d.best=t; cls='ti'; out.push(`${d.id}c6|${sbest==null||t<sbest?'tb':'ti'}|${t.toFixed(3)}`); }
+      if(sbest==null||t<sbest){ sbest=t; cls='tb'; }
+      out.push(`${d.id}c8|in|${d.laps}`,`${d.id}c5|${cls}|${t.toFixed(3)}`); }
+    if(out.length){ const s=[...k].sort((a,b)=>b.laps-a.laps||a.total-b.total);
+      s.forEach((d,i)=>{ out.push(`${d.id}|#|${i+1}`,`${d.id}c2|rk|${i+1}`,`${d.id}c7|in|${i?(d.laps<s[0].laps?(s[0].laps-d.laps)+' Giri':(d.total-s[0].total).toFixed(3)):''}`); });
+      feed.ingest(out.join('\n')); }
+  },200);
+}
+
+/* ---------- View ---------- */
+(function main(){
+  const q=new URLSearchParams(location.search);
+  const cfg={host:q.get('host')||'live-data.apex-timing.com', port:parseInt(q.get('port')||'8040',10), team:'tronco'};
+  try{ const s=JSON.parse(localStorage.getItem('apexlive:cfg')||'null'); if(s){ if(!q.get('port')){ cfg.host=s.host; cfg.port=s.port; } if(s.team!=null) cfg.team=s.team; } }catch(e){}
+  let custom={}; try{ custom=JSON.parse(localStorage.getItem('apexlive:names')||'{}'); }catch(e){}
+  let sort='pos', dirty=true, openId=null, filterDrv=null, editId=null, detailSig='', demoTimer=null, raw=[], autoPinned=false;
+  const hist={}; // rowId -> {at,busy,err,logged}
+  const store=createStore({storageKey:'apexlive:'+cfg.port, onChange:()=>{dirty=true;}});
+  const history=createHistory(cfg);
+  const feed=createFeed({ onBatch:b=>store.apply(b), onRaw:l=>{ const cap=l.startsWith('grid')?9000:240; raw.push(l.length>cap?l.slice(0,cap)+'…':l); if(raw.length>400) raw.splice(0,100); },
+    onStatus:(s,url)=>{ const el=$('status'); el.className='status '+(s==='open'?'open':''); el.textContent = s==='open'?'● live':s==='connecting'?'connecting…':'retrying…'; el.title=url||''; } });
+
+  function connect(){ if(demoTimer){ clearInterval(demoTimer); demoTimer=null; } feed.connect(cfg.host,cfg.port); }
+  function demo(){ feed.close(); if(demoTimer) clearInterval(demoTimer); demoTimer=startDemo(feed); const el=$('status'); el.className='status demo'; el.textContent='demo'; closeSheets(); }
+  function closeSheets(){ openId=null; editId=null; $('detail').classList.remove('on'); $('settings').classList.remove('on'); }
+
+  async function loadHistory(id){
+    if(demoTimer) return; const h=hist[id]||(hist[id]={}); if(h.busy) return; h.busy=true;
+    try{ const d=await history.fetch(id); store.setHistory(id,d); h.at=Date.now(); h.err=d.laps.length?'':'The server returned no laps for this team yet.';
+      if(!h.logged){ h.logged=true; raw.push('HIST '+id+' laps='+d.laps.length+' pits='+d.pits.length, ...d.other.slice(0,40).map(l=>'HIST '+l.slice(0,3000))); } }
+    catch(e){ h.err='Could not load the race history ('+(e.message||e)+').'; h.at=Date.now()-25000; }
+    h.busy=false; dirty=true; detailSig='';
+  }
+  setInterval(()=>{ // keep history fresh for starred teams and the open one; star "my team" once
+    const rows=store.rows(); if(!rows.length||demoTimer) return;
+    if(!autoPinned && cfg.team){ autoPinned=true; let done=''; try{ done=localStorage.getItem('apexlive:autopin')||''; }catch(e){}
+      if(done!==cfg.team){ const r=rows.find(x=>x.name.toLowerCase().includes(cfg.team.toLowerCase())); if(r){ if(!r.pinned) store.togglePin(r.key); try{ localStorage.setItem('apexlive:autopin',cfg.team); }catch(e){} } else autoPinned=false; } }
+    const now=Date.now(); for(const r of rows) if(r.pinned||r.id===openId){ const h=hist[r.id]; if(!h||!h.at||now-h.at>40000) loadHistory(r.id); }
+  }, 3000);
+
+  const lapCls = (l,med) => l.sb?'sb':l.pb?'pb':(med&&l.t>med*1.03?'slow':'');
+  function rowHtml(r,now){
+    const lastLap=r.laps[r.laps.length-1];
+    const cls = lastLap ? lapCls(lastLap,r.med) : /^tb/.test(r.lastCls)?'sb':/^ti/.test(r.lastCls)?'pb':'';
+    const d = r.last!=null&&r.best!=null ? r.last-r.best : null;
+    const meta=[]; if(r.inPit) meta.push('<span class="pit">PIT</span>'); if(r.gap) meta.push(esc(r.gap)); if(r.lapsTotal) meta.push(esc(r.lapsTotal)+' laps'); if(r.pitCount&&r.pitCount!=='0') meta.push(esc(r.pitCount)+' pit');
+    const recent=r.laps.slice(-14), ref=r.med?r.med*1.06:null;
+    const bars=recent.map(l=>{ const h = ref&&r.best!=null&&ref>r.best ? Math.max(0.12,Math.min(1,(ref-l.t)/(ref-r.best))) : 0.5; return `<i class="${lapCls(l,r.med)}" style="height:${Math.round(h*100)}%"></i>`; }).join('');
+    const prog = r.lastCross&&r.med&&!r.inPit ? Math.min(100,(now-r.lastCross)/(r.med*10)) : 0;
+    const sub = sort==='pace' ? 'pace '+fmt(r.pace) : 'best '+fmt(r.best)+(d!=null&&d>0.0005?' · '+fmtD(d):'');
+    return `<li class="row${r.pinned?' pin':''}${now-r.flashAt<1200?' flash':''}" data-id="${r.id}">
+      <div class="pos num">${esc(r.rank||r.pos)}</div><div class="no num">${esc(r.no)}</div>
+      <div class="who"><div class="name">${esc(r.name)}</div><div class="meta num">${meta.join(' · ')||'&nbsp;'}</div></div>
+      <div class="times num"><div class="last ${cls}">${r.last!=null?fmt(r.last):esc(r.lastText)||'–'}</div><div class="sub">${sub}</div></div>
+      <button class="star" data-pin="${esc(r.key)}" aria-label="Follow">${r.pinned?'★':'☆'}</button>
+      <div class="form">${bars}</div><div class="prog"><i style="width:${prog.toFixed(1)}%"></i></div></li>`;
+  }
+  function sorted(){
+    const rows=store.rows(); const by=k=>(a,b)=>(a[k]??1e9)-(b[k]??1e9);
+    if(sort!=='pos') rows.sort(by(sort));
+    return [...rows.filter(r=>r.pinned),...rows.filter(r=>!r.pinned)];
+  }
+  function chart(laps,pitLaps,best){
+    if(laps.length<2) return '<div class="note">Lap chart appears after two laps.</div>';
+    const st=lapStats(laps.filter(l=>!pitLaps.has(l.n)).map(l=>l.t));
+    const W=320,H=140,L=46,R=8,T=10,B=18, lo=Math.min(st.best??1e9,best??1e9), hi=Math.max(lo+0.3,Math.min((st.med||lo)*1.08,Math.max(...laps.map(l=>l.t))));
+    const n0=laps[0].n, n1=laps[laps.length-1].n, x=n=>L+(W-L-R)*(n1===n0?0.5:(n-n0)/(n1-n0)), y=t=>T+(H-T-B)*(1-(Math.min(t,hi)-lo)/(hi-lo));
+    let path='', prev=null; for(const l of laps){ path+=(prev!=null&&l.n===prev+1?'L':'M')+x(l.n).toFixed(1)+' '+y(l.t).toFixed(1)+' '; prev=l.n; }
+    const rad=laps.length>60?1.7:2.5;
+    const dots=laps.map(l=>{ const over=l.t>hi, c=pitLaps.has(l.n)?'var(--amber)':l.sb?'var(--purple)':l.pb?'var(--green)':over?'var(--amber)':'#9aa5b1'; return `<circle cx="${x(l.n).toFixed(1)}" cy="${y(l.t).toFixed(1)}" r="${rad}" fill="${over?'none':c}" stroke="${c}" stroke-width="1.2"/>`; }).join('');
+    const pitsV=[...pitLaps].filter(n=>n>=n0&&n<=n1).map(n=>`<line x1="${x(n)}" x2="${x(n)}" y1="${T}" y2="${H-B}" stroke="var(--amber)" opacity=".35"/>`).join('');
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Lap times">${pitsV}<line x1="${L}" x2="${W-R}" y1="${y(lo)}" y2="${y(lo)}" stroke="var(--green)" stroke-dasharray="3 3" opacity=".6"/>
+      <path d="${path}" fill="none" stroke="#6b7785" stroke-width="1.2"/>${dots}
+      <g font-size="9.5" fill="#8b95a1" font-family="ui-monospace,monospace"><text x="4" y="${y(lo)+3}">${fmt(lo)}</text><text x="4" y="${T+4}">${fmt(hi)}</text>
+      <text x="${L}" y="${H-5}">lap ${n0}</text><text x="${W-R}" y="${H-5}" text-anchor="end">lap ${n1}</text></g></svg>
+      <div class="note">Higher = slower. Amber lines = pit stops. Hollow dots are laps slower than ${fmt(hi)} (pit, traffic, spin).</div>`;
+  }
+  function detailHtml(r){
+    const b=breakdown(r), sb=store.meta.sessionBest, h=hist[r.id]||{}, hasPits=r.pits.length>0;
+    const dname=d=>custom[r.key+':'+d.id]||r.names[d.id]||d.label;
+    if(filterDrv && !b.drivers.some(d=>d.id===filterDrv)) filterDrv=null;
+    const sel=filterDrv?b.drivers.find(d=>d.id===filterDrv):null, laps=sel?sel.laps:r.laps;
+    const tiles = sel
+      ? `<div class="tile"><small>Laps</small><b>${sel.st.n}</b></div><div class="tile"><small>Best</small><b class="pb">${fmt(sel.st.best)}</b></div><div class="tile"><small>Average</small><b>${fmt(sel.st.avg)}</b></div><div class="tile"><small>Spread</small><b>${sel.st.sd!=null?'±'+sel.st.sd.toFixed(3):'–'}</b></div>`
+      : `<div class="tile"><small>Last</small><b>${fmt(r.last)}</b></div><div class="tile"><small>Best</small><b class="pb">${fmt(r.best)}</b></div><div class="tile"><small>Pace (5)</small><b>${fmt(r.pace)}</b></div><div class="tile"><small>Spread</small><b>${r.sd!=null?'±'+r.sd.toFixed(3):'–'}</b></div>`;
+    const bestAvg=Math.min(...b.drivers.map(d=>d.st.avg??1e9));
+    const drv = !hasPits ? '' : `<h3>People – tap to filter</h3><table class="num drv"><thead><tr><th>Driver</th><th>Laps</th><th>Best</th><th>Average</th><th>±</th></tr></thead><tbody>
+      <tr data-drv="" class="${sel?'':'on'}"><td><span class="dn">Whole team</span></td><td>${r.laps.length}</td><td>${fmt(r.best)}</td><td></td><td></td></tr>`+
+      b.drivers.map(d=>`<tr data-drv="${d.id}" class="${sel===d?'on':''}"><td>${editId===d.id?`<input data-name="${d.id}" value="${esc(dname(d))}">`:`<span class="dn">${esc(dname(d))} <button class="ren" data-ren="${d.id}" aria-label="Rename">✎</button></span>`}<small>stint ${d.stints.map(s=>s.i).join(', ')}</small></td>
+        <td>${d.st.n}</td><td>${fmt(d.st.best)}</td><td class="${d.st.avg!=null&&d.st.avg===bestAvg?'pb':''}">${fmt(d.st.avg)}</td><td>${d.st.sd!=null?d.st.sd.toFixed(2):''}</td></tr>`).join('')+'</tbody></table>'+
+      '<div class="note">Average and ± leave out pit laps and laps more than 7% off the median. Tap ✎ to correct a name.</div>';
+    const hasSec=laps.some(l=>l.s&&l.s.some(x=>x!=null)), cols=4+(hasSec?3:0);
+    const stints=(sel?sel.stints:b.stints).slice().reverse();
+    const body=stints.map(s=>{ if(!s.laps.length) return ''; const d=b.drivers.find(d=>d.id===s.drv);
+      const head=hasPits?`<tr class="sh"><td colspan="${cols}">Stint ${s.i} · <b>${esc(dname(d))}</b> · laps ${s.laps[0].n}–${s.laps[s.laps.length-1].n} · avg <span class="num">${fmt(s.st.avg)}</span>${s.pit?' · then pit '+fmtMs(s.pit.pitMs):''}</td></tr>`:'';
+      return head+s.laps.slice().reverse().map(l=>{ const pit=b.pitLaps.has(l.n);
+        return `<tr><td>${l.n}</td><td class="${pit?'slow':lapCls(l,s.st.med)}"><b>${fmt(l.t)}</b>${pit?' <span class="pit">PIT</span>':''}</td><td>${r.best!=null&&!pit?fmtD(l.t-r.best):''}</td><td>${sb!=null&&!pit?fmtD(l.t-sb):''}</td>${hasSec?(l.s||[null,null,null]).map(x=>`<td>${x!=null?x.toFixed(3):''}</td>`).join(''):''}</tr>`; }).join(''); }).join('');
+    const histNote = demoTimer ? '' : h.err ? `<div class="note" style="color:var(--amber)">${esc(h.err)} Showing only laps seen since this page was opened.</div>`
+      : !h.at ? '<div class="note">Loading laps from the start of the race…</div>'
+      : `<div class="note">Whole race loaded: ${r.laps.length} laps, ${r.pits.length} pit stops. Updates live.</div>`;
+    return `<div class="shead"><button class="back" data-close>‹</button><span class="no num" style="padding:3px 8px">${esc(r.no)}</span>
+        <div style="flex:1;min-width:0"><div class="name">${esc(r.name)}</div><div class="meta num">P${esc(r.rank||r.pos)}${r.gap?' · '+esc(r.gap):''}${r.lapsTotal?' · '+esc(r.lapsTotal)+' laps':''}${r.inPit?' · <span class="pit">PIT</span>':''}</div></div>
+        <button class="star" data-pin="${esc(r.key)}" style="color:${r.pinned?'var(--pin)':'#56616d'}">${r.pinned?'★':'☆'}</button></div>
+      ${histNote}<div class="tiles num">${tiles}</div>${drv}
+      <h3>${sel?esc(dname(sel))+' – laps':'Laps'}</h3><div class="chart">${chart(laps,b.pitLaps,sel?sel.st.best:r.best)}</div>
+      <table class="num laps"><thead><tr><th>Lap</th><th>Time</th><th>Δ team best</th><th>Δ session</th>${hasSec?'<th>S1</th><th>S2</th><th>S3</th>':''}</tr></thead><tbody>${body}</tbody></table>`;
+  }
+  function renderDetail(force){
+    if(!openId||editId&&!force) return; const r=store.row(openId); if(!r) return; const h=hist[r.id]||{};
+    const sig=[r.laps.length,r.pits.length,filterDrv,r.rank,r.gap,r.inPit,h.at?1:0,h.err,r.pinned,editId,JSON.stringify(custom)].join('|');
+    if(sig===detailSig&&!force) return; detailSig=sig;
+    const d=$('detail'), y=d.scrollTop; d.innerHTML=detailHtml(r); d.scrollTop=y;
+    if(editId){ const i=d.querySelector('input[data-name]'); if(i){ i.focus(); i.select(); } }
+  }
+  function render(){
+    const now=Date.now(), m=store.meta, rows=sorted();
+    $('t1').textContent=m.t1||'Misanino Kart'; $('t2').textContent=m.t2; $('flag').className='flag '+m.flag;
+    const c=m.clock; $('clock').textContent = !c ? '' : c.text!=null ? c.text : fmtMs(Math.max(0,c.end?c.end-now:now-c.start));
+    $('sbest').innerHTML = m.sessionBest!=null ? `Session best <b class="num">${fmt(m.sessionBest)}</b> · <span style="color:var(--green)">green</span> = personal best · <span style="color:var(--amber)">amber</span> = slow lap` : '';
+    $('empty').style.display = rows.length?'none':'';
+    if(!openId) $('list').innerHTML = rows.map(r=>rowHtml(r,now)).join('');
+    renderDetail(false);
+    if($('settings').classList.contains('on')) $('raw').textContent=raw.slice(-80).map(l=>l.slice(0,400)).join('\n');
+  }
+  let lastFull=0;
+  setInterval(()=>{ const now=Date.now(); if(dirty||now-lastFull>1000){ dirty=false; lastFull=now; render(); } }, 250);
+
+  function saveName(input){ const r=store.row(openId); if(r){ const v=input.value.trim(), k=r.key+':'+input.getAttribute('data-name'); if(v) custom[k]=v; else delete custom[k];
+      try{ localStorage.setItem('apexlive:names',JSON.stringify(custom)); }catch(e){} } editId=null; renderDetail(true); }
+  document.addEventListener('change',e=>{ if(e.target.matches('input[data-name]')) saveName(e.target); });
+  document.addEventListener('focusout',e=>{ if(e.target.matches&&e.target.matches('input[data-name]')&&editId) saveName(e.target); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Enter'&&e.target.matches('input[data-name]')) e.target.blur(); });
+  document.addEventListener('click',e=>{
+    const t=e.target; if(t.matches('input[data-name]')) return;
+    const pin=t.closest('[data-pin]'); if(pin){ store.togglePin(pin.getAttribute('data-pin')); render(); return; }
+    if(t.closest('[data-close]')){ closeSheets(); render(); return; }
+    const ren=t.closest('[data-ren]'); if(ren){ editId=ren.getAttribute('data-ren'); renderDetail(true); return; }
+    const drv=t.closest('[data-drv]'); if(drv){ filterDrv=drv.getAttribute('data-drv')||null; renderDetail(true); return; }
+    const s=t.closest('#sort button'); if(s){ sort=s.dataset.s; document.querySelectorAll('#sort button').forEach(b=>b.classList.toggle('on',b===s)); render(); return; }
+    const row=t.closest('.row'); if(row){ openId=row.dataset.id; filterDrv=null; detailSig=''; const d=$('detail'); d.classList.add('on'); d.scrollTop=0; loadHistory(openId); render(); return; }
+  });
+  $('status').onclick=$('setBtn').onclick=()=>{ $('host').value=cfg.host; $('port').value=cfg.port; $('team').value=cfg.team; $('settings').classList.add('on'); render(); };
+  $('demoBtn').onclick=$('demoBtn2').onclick=demo;
+  $('connBtn').onclick=()=>{ cfg.host=$('host').value.trim()||cfg.host; cfg.port=parseInt($('port').value,10)||cfg.port; cfg.team=$('team').value.trim(); autoPinned=false;
+    try{ localStorage.setItem('apexlive:cfg',JSON.stringify(cfg)); }catch(e){} closeSheets(); connect(); };
+  $('clearBtn').onclick=()=>{ store.clear(); for(const k in hist) delete hist[k]; render(); };
+  $('copyBtn').onclick=()=>{
+    const text=[...raw.filter(l=>/^(grid|HIST|title|init|dyn|light)/.test(l)),'---',...raw.filter(l=>!/^(grid|HIST)/.test(l)).slice(-120)].join('\n');
+    const ta=$('export'); ta.style.display='block'; ta.value=text; ta.focus(); ta.select(); ta.setSelectionRange(0,text.length);
+    let ok=false; try{ ok=document.execCommand('copy'); }catch(e){}
+    const done=()=>{ $('copyBtn').textContent='Copied'; };
+    if(ok) done(); else if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done,()=>{ $('copyBtn').textContent='Select all below + copy'; });
+    else $('copyBtn').textContent='Select all below + copy';
+  };
+
+  if(location.hash==='#demo') demo(); else connect();
+})();
+</script>
+</body>
+</html>
